@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<defaultsMap>
+    <entry>
+        <key>bank_sms_patterns</key>
+        <value>
+{
+  "AXISBK": {
+    "merchantPatterns": [
+      "(?i)spent.*?at\\s+(.+?)\\s+on",
+      "(?i)txn.*?at\\s+(.+?)\\s+for",
+      "(?i)payment.*?to\\s+(.+?)\\s+ref"
+    ],
+    "excludePatterns": [
+      "(?i)OTP",
+      "(?i)verification",
+      "(?i)password"
+    ],
+    "creditIndicators": [
+      "(?i)credited",
+      "(?i)received",
+      "(?i)refund"
+    ]
+  },
+  "CUBANK": {
+    "merchantPatterns": [
+      "(?i)debited.*?towards\\s+(.+?)\\s",
+      "(?i)spent.*?at\\s+(.+?)\\s"
+    ],
+    "excludePatterns": [
+      "(?i)OTP",
+      "(?i)verification"
+    ],
+    "creditIndicators": [
+      "(?i)credited",
+      "(?i)deposited"
+    ]
+  },
+  "HDFCBK": {
+    "merchantPatterns": [
+      "(?i)at\\s+(.+?)\\s+on\\s+\\d",
+      "(?i)to\\s+(.+?)\\s+Ref",
+      "(?i)txn.*?for\\s+(.+?)\\s+on"
+    ],
+    "excludePatterns": [
+      "(?i)OTP",
+      "(?i)NetBanking",
+      "(?i)password",
+      "(?i)PIN"
+    ],
+    "creditIndicators": [
+      "(?i)credited",
+      "(?i)received",
+      "(?i)cashback",
+      "(?i)refund"
+    ]
+  },
+  "SBIINB": {
+    "merchantPatterns": [
+      "(?i)transfer to\\s+(.+?)\\s",
+      "(?i)debited.*?towards\\s+(.+?)\\s"
+    ],
+    "excludePatterns": [
+      "(?i)OTP",
+      "(?i)YONO"
+    ],
+    "creditIndicators": [
+      "(?i)credited",
+      "(?i)deposited",
+      "(?i)received"
+    ]
+  },
+  "ICICIB": {
+    "merchantPatterns": [
+      "(?i)at\\s+(.+?)\\.",
+      "(?i)txn of.*?at\\s+(.+?)\\s+on",
+      "(?i)paid to\\s+(.+?)\\s"
+    ],
+    "excludePatterns": [
+      "(?i)OTP",
+      "(?i)iMobile",
+      "(?i)password"
+    ],
+    "creditIndicators": [
+      "(?i)credited",
+      "(?i)received",
+      "(?i)refund",
+      "(?i)reversed"
+    ]
+  }
+}
+        </value>
+    </entry>
+</defaultsMap>

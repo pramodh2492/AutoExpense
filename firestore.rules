@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Deny all access to root collection by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users can only read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Transactions sub-collection with field validation
+      match /transactions/{transactionId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && isValidTransaction(request.resource.data);
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Categories sub-collection
+      match /categories/{categoryId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Budgets sub-collection
+      match /budgets/{budgetId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Any other nested documents under user
+      match /{subcollection=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Validate transaction fields
+    function isValidTransaction(data) {
+      let validCategories = [
+        'food', 'transport', 'shopping', 'entertainment',
+        'health', 'education', 'bills', 'groceries',
+        'fuel', 'travel', 'subscriptions', 'salary',
+        'investment', 'rent', 'utilities', 'other'
+      ];
+
+      return data.amount is number
+        && data.amount > 0
+        && data.category is string
+        && data.category in validCategories
+        && data.keys().hasAll(['amount', 'category', 'date'])
+        && data.date is timestamp;
+    }
+  }
+}
