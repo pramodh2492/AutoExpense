@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -35,17 +36,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import com.expensetracker.data.local.Insight
 import com.expensetracker.data.local.InsightType
@@ -67,6 +72,7 @@ fun DashboardScreen(
     val insights by viewModel.insights.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = Modifier
@@ -85,26 +91,49 @@ fun DashboardScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
-                val infiniteTransition = rememberInfiniteTransition(label = "refresh")
-                val rotation by infiniteTransition.animateFloat(
-                    initialValue = 0f,
-                    targetValue = 360f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1000, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    ),
-                    label = "rotation"
-                )
+                Row {
+                    IconButton(onClick = { ShareReportHelper.shareReport(context, stats) }) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share Report",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                IconButton(onClick = { viewModel.scanExistingSms() }) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        modifier = if (isLoading) Modifier.graphicsLayer { rotationZ = rotation } else Modifier,
-                        tint = if (isLoading) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                    val infiniteTransition = rememberInfiniteTransition(label = "refresh")
+                    val rotation by infiniteTransition.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 360f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000, easing = LinearEasing),
+                            repeatMode = RepeatMode.Restart
+                        ),
+                        label = "rotation"
                     )
+
+                    IconButton(onClick = { viewModel.scanExistingSms() }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            modifier = if (isLoading) Modifier.graphicsLayer { rotationZ = rotation } else Modifier,
+                            tint = if (isLoading) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
+            }
+        }
+
+        // Loading indicator
+        if (isLoading) {
+            item {
+                Text(
+                    text = "⟳ Scanning messages...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
         }
 
@@ -123,101 +152,144 @@ fun DashboardScreen(
             }
         }
 
-        // Gradient stat cards
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                GradientStatCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Spent",
-                    amount = currencyFormat.format(stats.totalSpent),
-                    gradientColors = listOf(Color(0xFFFF5252), Color(0xFFFF1744))
-                )
-                GradientStatCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Income",
-                    amount = currencyFormat.format(stats.totalIncome),
-                    gradientColors = listOf(Color(0xFF4CAF50), Color(0xFF00C853))
-                )
-            }
-        }
-
-        // Savings card
-        if (stats.totalSavings > 0) {
+        // Empty state when no transactions and not loading
+        if (transactions.isEmpty() && !isLoading) {
             item {
-                GradientStatCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    title = "Savings & Investments",
-                    amount = currencyFormat.format(stats.totalSavings),
-                    gradientColors = listOf(Color(0xFF26A69A), Color(0xFF00897B))
-                )
-            }
-        }
-
-        // Balance card
-        item {
-            val balance = stats.totalIncome - stats.totalSpent - stats.totalSavings
-            GradientStatCard(
-                modifier = Modifier.fillMaxWidth(),
-                title = "Balance",
-                amount = currencyFormat.format(balance),
-                gradientColors = if (balance >= 0)
-                    listOf(Color(0xFF7C4DFF), Color(0xFF536DFE))
-                else
-                    listOf(Color(0xFFFF6F00), Color(0xFFFF3D00))
-            )
-        }
-
-        if (stats.categoryBreakdown.isNotEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 48.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Inbox,
+                            contentDescription = null,
+                            modifier = Modifier.size(72.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Where your money goes",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                            text = "No transactions yet",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        CategoryPieChart(
-                            data = stats.categoryBreakdown,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Your expenses will appear here automatically when you receive bank SMS",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp)
                         )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(onClick = { viewModel.scanExistingSms() }) {
+                            Text("Scan SMS Now")
+                        }
                     }
                 }
             }
         }
 
-        // Smart Insights
-        if (insights.isNotEmpty()) {
+        // Only show stats and transactions when we have data
+        if (transactions.isNotEmpty()) {
+            // Gradient stat cards
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    GradientStatCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Spent",
+                        amount = currencyFormat.format(stats.totalSpent),
+                        gradientColors = listOf(Color(0xFFFF5252), Color(0xFFFF1744))
+                    )
+                    GradientStatCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Income",
+                        amount = currencyFormat.format(stats.totalIncome),
+                        gradientColors = listOf(Color(0xFF4CAF50), Color(0xFF00C853))
+                    )
+                }
+            }
+
+            // Savings card
+            if (stats.totalSavings > 0) {
+                item {
+                    GradientStatCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        title = "Savings & Investments",
+                        amount = currencyFormat.format(stats.totalSavings),
+                        gradientColors = listOf(Color(0xFF26A69A), Color(0xFF00897B))
+                    )
+                }
+            }
+
+            // Balance card
+            item {
+                val balance = stats.totalIncome - stats.totalSpent - stats.totalSavings
+                GradientStatCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = "Balance",
+                    amount = currencyFormat.format(balance),
+                    gradientColors = if (balance >= 0)
+                        listOf(Color(0xFF7C4DFF), Color(0xFF536DFE))
+                    else
+                        listOf(Color(0xFFFF6F00), Color(0xFFFF3D00))
+                )
+            }
+
+            if (stats.categoryBreakdown.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Where your money goes",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            CategoryPieChart(
+                                data = stats.categoryBreakdown,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Smart Insights
+            if (insights.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Insights",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                items(insights) { insight ->
+                    InsightCard(insight = insight)
+                }
+            }
+
             item {
                 Text(
-                    text = "Insights",
+                    text = "Recent Transactions",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            items(insights) { insight ->
-                InsightCard(insight = insight)
+
+            items(transactions.take(10)) { transaction ->
+                TransactionItem(transaction = transaction)
             }
-        }
-
-        item {
-            Text(
-                text = "Recent Transactions",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        items(transactions.take(10)) { transaction ->
-            TransactionItem(transaction = transaction)
         }
     }
 }

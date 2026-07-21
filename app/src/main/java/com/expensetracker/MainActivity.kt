@@ -40,9 +40,12 @@ import com.expensetracker.data.local.UserPreferences
 import com.expensetracker.ui.components.RateDialog
 import com.expensetracker.ui.navigation.NavGraph
 import com.expensetracker.ui.navigation.Screen
+import com.expensetracker.ui.screens.OnboardingScreen
+import com.expensetracker.ui.screens.SplashScreen
 import com.expensetracker.ui.theme.ExpenseTrackerTheme
 import com.expensetracker.notification.NotificationHelper
 import com.expensetracker.viewmodel.ExpenseViewModel
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -79,9 +82,10 @@ class MainActivity : FragmentActivity() {
         val task = com.google.android.gms.auth.api.signin.GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
-            account?.idToken?.let { token ->
-                kotlinx.coroutines.MainScope().launch {
-                    if (authManager.firebaseAuthWithGoogle(token)) {
+            val idToken = account?.idToken
+            if (idToken != null) {
+                lifecycleScope.launch {
+                    if (authManager.firebaseAuthWithGoogle(idToken)) {
                         signedInEmail.value = authManager.userEmail
                         signedInName.value = authManager.userName
                         signedInPhoto.value = authManager.userPhotoUrl
@@ -105,6 +109,29 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             ExpenseTrackerTheme {
+                // Splash screen
+                var showSplash by remember { mutableStateOf(true) }
+
+                if (showSplash) {
+                    SplashScreen(onSplashFinished = { showSplash = false })
+                    return@ExpenseTrackerTheme
+                }
+
+                // Onboarding for new users (shown before everything else)
+                var hasCompletedOnboarding by remember {
+                    mutableStateOf(userPreferences.hasCompletedOnboarding)
+                }
+
+                if (!hasCompletedOnboarding) {
+                    OnboardingScreen(
+                        onComplete = {
+                            userPreferences.hasCompletedOnboarding = true
+                            hasCompletedOnboarding = true
+                        }
+                    )
+                    return@ExpenseTrackerTheme
+                }
+
                 var isUnlocked by remember {
                     mutableStateOf(!appLockManager.isAppLockEnabled)
                 }
@@ -119,21 +146,21 @@ class MainActivity : FragmentActivity() {
 
                 // Google Sign-In prompt (non-mandatory, shows once)
                 var showSignInPrompt by remember {
-                    mutableStateOf(authManager.currentUser == null && !userPreferences.isOnboarded)
+                    mutableStateOf(authManager.currentUser == null && !userPreferences.hasSeenSignInPrompt)
                 }
 
                 if (showSignInPrompt) {
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = {
                             showSignInPrompt = false
-                            userPreferences.isOnboarded = true
+                            userPreferences.hasSeenSignInPrompt = true
                         },
                         title = { Text("Sign in to backup") },
                         text = { Text("Sign in with Google to backup your data and sync across devices. You can always do this later in Settings.") },
                         confirmButton = {
                             androidx.compose.material3.TextButton(onClick = {
                                 showSignInPrompt = false
-                                userPreferences.isOnboarded = true
+                                userPreferences.hasSeenSignInPrompt = true
                                 try {
                                     googleSignInLauncher.launch(authManager.getSignInIntent())
                                 } catch (_: Exception) {}
@@ -142,7 +169,7 @@ class MainActivity : FragmentActivity() {
                         dismissButton = {
                             androidx.compose.material3.TextButton(onClick = {
                                 showSignInPrompt = false
-                                userPreferences.isOnboarded = true
+                                userPreferences.hasSeenSignInPrompt = true
                             }) { Text("Skip") }
                         }
                     )

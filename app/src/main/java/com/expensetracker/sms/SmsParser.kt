@@ -119,16 +119,42 @@ class SmsParser @Inject constructor(
 
     // Messages that should NOT be treated as transactions
     private val excludePatterns = listOf(
+        // Security/OTP messages
         Regex("""BEWARE""", RegexOption.IGNORE_CASE),
         Regex("""DO NOT GIVE""", RegexOption.IGNORE_CASE),
         Regex("""DO NOT SHARE""", RegexOption.IGNORE_CASE),
+        Regex("""OTP|otp|One Time Password"""),
+
+        // Failed/declined transactions
         Regex("""(?:has\s+)?failed""", RegexOption.IGNORE_CASE),
         Regex("""(?:could\s+not|cannot|unable)\s+(?:be\s+)?(?:processed|completed|debited)""", RegexOption.IGNORE_CASE),
         Regex("""unsuccessful""", RegexOption.IGNORE_CASE),
         Regex("""declined""", RegexOption.IGNORE_CASE),
-        Regex("""reversed""", RegexOption.IGNORE_CASE),
-        Regex("""OTP|otp|One Time Password"""),
+        Regex("""reversal\s+(?:failed|unsuccessful)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:will be|to be)\s+reversed""", RegexOption.IGNORE_CASE),
+
+        // Reminders and payment-due messages (NOT actual debits)
+        Regex("""reminder""", RegexOption.IGNORE_CASE),
+        Regex("""is\s+due\b""", RegexOption.IGNORE_CASE),
+        Regex("""(?:payment|emi|bill)\s+(?:is\s+)?due""", RegexOption.IGNORE_CASE),
+        Regex("""due\s+on\s+\d""", RegexOption.IGNORE_CASE),
+        Regex("""pay\s+(?:by|before|on)\s+\d""", RegexOption.IGNORE_CASE),
+        Regex("""please\s+pay""", RegexOption.IGNORE_CASE),
+        Regex("""kindly\s+pay""", RegexOption.IGNORE_CASE),
+        Regex("""amount\s+due""", RegexOption.IGNORE_CASE),
+        Regex("""overdue""", RegexOption.IGNORE_CASE),
+        Regex("""outstanding""", RegexOption.IGNORE_CASE),
+        Regex("""minimum\s+(?:amount\s+)?due""", RegexOption.IGNORE_CASE),
+        Regex("""total\s+(?:amount\s+)?due""", RegexOption.IGNORE_CASE),
+        Regex("""avoid\s+late\s+fee""", RegexOption.IGNORE_CASE),
+        Regex("""last\s+date\s+(?:to|of)\s+pay""", RegexOption.IGNORE_CASE),
+        Regex("""request\s+(?:you\s+)?to\s+pay""", RegexOption.IGNORE_CASE),
+
+        // Promotional/informational
         Regex("""promotional|offer|reward points|congratulations""", RegexOption.IGNORE_CASE),
+        Regex("""pre[- ]?approved""", RegexOption.IGNORE_CASE),
+        Regex("""loan\s+offer""", RegexOption.IGNORE_CASE),
+        Regex("""credit\s+limit\s+(?:increased|enhanced)""", RegexOption.IGNORE_CASE),
     )
 
     fun isTransactionalSms(sender: String, body: String): Boolean {
@@ -181,8 +207,9 @@ class SmsParser @Inject constructor(
     }
 
     private fun generateHash(body: String, timestamp: LocalDateTime): String {
-        val raw = "${body.trim()}|${timestamp.toLocalDate()}"
-        return raw.hashCode().toUInt().toString(16)
+        val raw = "${body.trim()}|${timestamp}"
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        return digest.digest(raw.toByteArray()).take(8).joinToString("") { "%02x".format(it) }
     }
 
     private fun isSalaryCredit(body: String, type: TransactionType, amount: Double): Boolean {

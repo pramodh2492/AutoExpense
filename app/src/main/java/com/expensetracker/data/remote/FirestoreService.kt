@@ -58,12 +58,14 @@ class FirestoreService @Inject constructor(
     suspend fun syncMerchantMappings(mappings: List<Pair<String, String>>) {
         ensureAuthenticated()
         val collection = getMerchantMappingsCollection()
-        val batch = firestore.batch()
-        mappings.forEach { (merchant, category) ->
-            val doc = collection.document(merchant)
-            batch.set(doc, mapOf("merchant" to merchant, "category" to category))
+        mappings.chunked(450).forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { (merchant, category) ->
+                val doc = collection.document(merchant)
+                batch.set(doc, mapOf("merchant" to merchant, "category" to category))
+            }
+            batch.commit().await()
         }
-        batch.commit().await()
     }
 
     suspend fun fetchAllTransactions(): List<Transaction> {

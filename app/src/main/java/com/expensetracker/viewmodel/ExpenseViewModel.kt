@@ -15,6 +15,7 @@ import com.expensetracker.sms.SmsScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -87,23 +88,17 @@ class ExpenseViewModel @Inject constructor(
         loadStats()
     }
 
+    private var statsJob: Job? = null
+
     private fun loadStats() {
-        viewModelScope.launch {
+        statsJob?.cancel()
+        statsJob = viewModelScope.launch {
             val (start, end) = getDateRange(_selectedPeriod.value)
-            repository.getExpenseStats(start, end).collect { stats ->
-                _stats.value = stats
-            }
-        }
-        viewModelScope.launch {
-            val (start, end) = getDateRange(_selectedPeriod.value)
-            repository.getDailySpend(start, end).collect { daily ->
-                _dailySpend.value = daily
-            }
-        }
-        viewModelScope.launch {
-            repository.getAllTransactions().collect { txns ->
+            launch { repository.getExpenseStats(start, end).collect { _stats.value = it } }
+            launch { repository.getDailySpend(start, end).collect { _dailySpend.value = it } }
+            launch { repository.getAllTransactions().collect { txns ->
                 _insights.value = insightsEngine.generateInsights(txns)
-            }
+            } }
         }
     }
 
@@ -124,6 +119,10 @@ class ExpenseViewModel @Inject constructor(
                 // Silently handle - permission not granted or other issue
             } finally {
                 _isLoading.value = false
+                // Force reload stats even if no new transactions were inserted
+                // (Room Flow won't re-emit if insertAll deduped everything)
+                loadStats()
+                loadMonthlyStats()
             }
         }
     }
@@ -170,6 +169,12 @@ class ExpenseViewModel @Inject constructor(
         if (newName.isBlank()) return
         viewModelScope.launch {
             repository.update(transaction.copy(merchant = newName))
+        }
+    }
+
+    fun deleteTransaction(transaction: Transaction) {
+        viewModelScope.launch {
+            repository.delete(transaction)
         }
     }
 

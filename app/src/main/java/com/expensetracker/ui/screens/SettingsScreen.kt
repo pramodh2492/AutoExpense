@@ -402,5 +402,22 @@ fun SettingsScreen(
             Text("Re-scan SMS with new settings")
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "AutoExpense by Lazybones",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        Text(
+            text = "© 2026 Lazybones. All rights reserved.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+
     }
 }

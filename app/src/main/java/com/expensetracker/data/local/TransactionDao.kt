@@ -22,6 +22,9 @@ interface TransactionDao {
     @Update
     suspend fun update(transaction: Transaction)
 
+    @Query("DELETE FROM transactions WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     @Query("UPDATE transactions SET category = :category WHERE LOWER(merchant) = LOWER(:merchant)")
     suspend fun updateCategoryForMerchant(merchant: String, category: TransactionCategory)
 
@@ -77,26 +80,30 @@ interface TransactionDao {
     @Query("""
         SELECT COUNT(*) FROM transactions
         WHERE amount = :amount
+        AND type = :type
         AND accountInfo = :accountInfo
         AND timestamp BETWEEN :windowStart AND :windowEnd
     """)
     suspend fun countDuplicatesSameAccount(
         amount: Double,
+        type: String,
         accountInfo: String,
         windowStart: LocalDateTime,
         windowEnd: LocalDateTime
     ): Int
 
     /**
-     * Tighter check: same amount within a narrow time window (for cases where account might differ).
+     * Tighter check: same amount + same type within a narrow time window.
      */
     @Query("""
         SELECT COUNT(*) FROM transactions
         WHERE amount = :amount
+        AND type = :type
         AND timestamp BETWEEN :windowStart AND :windowEnd
     """)
     suspend fun countDuplicatesNarrow(
         amount: Double,
+        type: String,
         windowStart: LocalDateTime,
         windowEnd: LocalDateTime
     ): Int

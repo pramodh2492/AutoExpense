@@ -42,6 +42,7 @@ fun AddTransactionScreen(
 ) {
     var amount by remember { mutableStateOf("") }
     var merchant by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
     var selectedCategory by remember { mutableStateOf(TransactionCategory.OTHER) }
     var selectedSource by remember { mutableStateOf(PaymentSource.UPI) }
     var showCategoryPicker by remember { mutableStateOf(false) }
@@ -55,10 +56,27 @@ fun AddTransactionScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Add Expense",
+            text = if (selectedType == TransactionType.DEBIT) "Add Expense" else "Add Income",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
+
+        // Debit / Credit toggle
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = selectedType == TransactionType.DEBIT,
+                onClick = { selectedType = TransactionType.DEBIT },
+                label = { Text("Expense (Debit)") }
+            )
+            FilterChip(
+                selected = selectedType == TransactionType.CREDIT,
+                onClick = { selectedType = TransactionType.CREDIT },
+                label = { Text("Income (Credit)") }
+            )
+        }
 
         OutlinedTextField(
             value = amount,
@@ -72,7 +90,7 @@ fun AddTransactionScreen(
         OutlinedTextField(
             value = merchant,
             onValueChange = { merchant = it },
-            label = { Text("Paid to (shop/person/app)") },
+            label = { Text(if (selectedType == TransactionType.DEBIT) "Paid to (shop/person/app)" else "Received from (person/company)") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
@@ -177,7 +195,7 @@ fun AddTransactionScreen(
                     amount = amountVal,
                     merchant = merchant.trim(),
                     category = selectedCategory,
-                    type = TransactionType.DEBIT,
+                    type = selectedType,
                     source = selectedSource,
                     accountInfo = "",
                     rawSms = if (note.isBlank()) "Manual entry" else "Manual: $note",
@@ -190,7 +208,7 @@ fun AddTransactionScreen(
             modifier = Modifier.fillMaxWidth(),
             enabled = amount.isNotBlank() && merchant.isNotBlank()
         ) {
-            Text("Add Expense")
+            Text(if (selectedType == TransactionType.DEBIT) "Add Expense" else "Add Income")
         }
     }
 }

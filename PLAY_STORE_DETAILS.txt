@@ -1,0 +1,173 @@
+================================================================
+AUTOEXPENSE - PLAY STORE SUBMISSION DETAILS
+================================================================
+
+APP NAME: AutoExpense
+PACKAGE NAME: com.expensetracker
+VERSION: 1.0.0
+CATEGORY: Finance
+PRICING: Free
+
+================================================================
+PRIVACY POLICY URL
+================================================================
+https://pramodh2492.github.io/AutoExpense/
+
+================================================================
+GITHUB REPOSITORY
+================================================================
+https://github.com/pramodh2492/AutoExpense (Private)
+
+================================================================
+FIREBASE PROJECT
+================================================================
+Project ID: expensetracker-a03a0
+Project Name: ExpenseTracker
+SHA-1 (Debug): CE:52:41:52:F8:11:03:5E:FB:83:EE:CE:6E:41:D3:54:0F:43:55:A1
+
+================================================================
+SHORT DESCRIPTION (80 chars max)
+================================================================
+Auto-track expenses from bank SMS. No manual entry needed. 100% private.
+
+================================================================
+FULL DESCRIPTION
+================================================================
+AutoExpense automatically reads your bank SMS and tracks every rupee you spend — so you don't have to.
+
+💡 HOW IT WORKS
+Just install and grant SMS permission. AutoExpense reads transaction messages from your bank (Axis, HDFC, SBI, ICICI, Kotak, and 20+ banks), extracts the amount, merchant, and date — and categorizes it automatically. No manual entry needed.
+
+📊 FEATURES
+
+• Auto SMS Tracking — Reads bank debit/credit SMS in real-time
+• Smart Categorization — Food, Groceries, Transport, Shopping, Bills, EMI, Fuel, and 15+ categories
+• Learning Engine — Correct a category once, it remembers forever
+• Budget Management — Set monthly limits per category, get alerts at 80% and 100%
+• Spending Predictions — "You'll spend ₹65,000 by month end"
+• Smart Insights — "Food spending up 35% vs last month"
+• Daily Spending View — See exactly where money goes each day
+• Manual Entry — Add cash expenses with one tap
+• Google Sign-In & Cloud Backup — Sync across devices, never lose data
+• 9 PM Daily Reminder — "Review your today's spending"
+• Notifications — Real-time alerts for every transaction
+• App Lock — PIN + Biometric security
+• Home Screen Widget — See today's spend without opening the app
+• Offline AI Assistant — Ask "How much on Swiggy?" and get instant answers
+• Dark Theme — Premium dark UI with vibrant category colors
+
+🔒 PRIVACY FIRST
+• All SMS parsing happens ON YOUR DEVICE
+• We never upload your messages to any server
+• No ads. No data selling. Your finances stay private.
+
+🏦 SUPPORTED BANKS
+Axis, HDFC, SBI, ICICI, Kotak, PNB, Yes Bank, IndusInd, Federal, IDFC First, AU Bank, City Union Bank, and more. Works with all UPI apps (GPay, PhonePe, Paytm), credit cards, debit cards, ECS/NACH, and net banking.
+
+🇮🇳 BUILT FOR INDIA
+• ₹ Indian Rupee
+• Recognizes Indian merchants (Swiggy, Zomato, BigBasket, D-Mart, Ola, and 500+ known merchants)
+• Understands local shop names (Sri Hari Krishna Store, Grace Mart, etc.)
+• Detects EMI, SIP, insurance, and recurring payments
+
+📱 ZERO EFFORT
+Install → Grant SMS permission → Done. The app works silently in the background. Open it when you're curious about your spending.
+
+AutoExpense — Know where your money goes.
+
+================================================================
+SMS PERMISSION DECLARATION (for Play Store review)
+================================================================
+Core Functionality: AutoExpense is a personal finance tracker that reads
+bank transaction SMS messages to automatically log and categorize expenses.
+
+Why READ_SMS is needed: The app's primary feature is automatic expense
+tracking from bank SMS. Without READ_SMS, users would need to manually
+enter every transaction, defeating the app's core purpose.
+
+Why RECEIVE_SMS is needed: To detect new bank transaction messages in
+real-time and immediately log them as expenses, providing instant
+notifications and up-to-date spending data.
+
+What we read: ONLY messages from known bank sender IDs (AXISBK, HDFCBK,
+SBIINB, ICICIB, KOTAKB, CUBANK, etc.) that contain transaction keywords
+(debited, credited, spent, paid, etc.)
+
+What we DO NOT read: Personal messages, OTPs, promotional SMS, or any
+non-banking messages.
+
+Data handling: All SMS parsing happens entirely on-device. Raw message
+content is never transmitted to external servers.
+
+================================================================
+KEYSTORE DETAILS (DO NOT SHARE)
+================================================================
+Path: /Users/pramodhv/AndroidProjects/ExpenseTracker/keystore/autoexpense-release.jks
+Key Alias: autoexpense
+IMPORTANT: Keep password saved securely. Cannot be recovered if lost.
+
+================================================================
+CONTENT RATING
+================================================================
+Category: Utility / Finance
+Violence: None
+Sexual content: None
+Language: None
+Controlled substance: None
+Rating: Everyone (E)
+
+================================================================
+DEVELOPER ACCOUNT
+================================================================
+Developer Name: Lazybones
+Contact Email: pramodh2492@gmail.com
+Play Console: https://play.google.com/console
+
+================================================================
+TAGS / KEYWORDS
+================================================================
+expense tracker, money manager, budget planner, UPI tracker,
+bank SMS reader, personal finance, spending tracker, auto expense,
+Indian expense app, rupee tracker, GPay tracker, budget alerts
+
+================================================================
+FEATURES CHECKLIST
+================================================================
+[x] SMS auto-parsing (Axis, HDFC, SBI, ICICI, CUB, 20+ banks)
+[x] Smart categorization (15+ categories)
+[x] Category learning (remembers corrections)
+[x] Budget management with alerts (80% and 100%)
+[x] Spending predictions
+[x] Manual expense entry
+[x] Google Sign-In
+[x] Cloud backup & restore (Firestore)
+[x] Daily 9 PM reminder notification
+[x] Transaction notifications
+[x] App Lock (PIN + Biometric)
+[x] Home screen widget
+[x] Offline AI query engine
+[x] Firebase Crashlytics
+[x] Firebase Analytics
+[x] Firebase Remote Config (dynamic SMS patterns)
+[x] Firebase App Check (Play Integrity)
+[x] Rate-me dialog
+[x] Dark/Light theme
+[x] Debit/Credit filter view
+[x] Date-grouped transactions
+[x] Pull-to-refresh (auto on open)
+[x] Privacy policy hosted
+[x] CI/CD (GitHub Actions)
+[x] Firestore security rules
+
+================================================================
+NEXT STEPS FOR PLAY STORE SUBMISSION
+================================================================
+1. Create Google Play Developer account ($25 one-time fee)
+2. Generate signed release AAB (Build → Generate Signed Bundle)
+3. Take 4-6 screenshots of the app
+4. Create a feature graphic (1024x500 banner)
+5. Upload AAB to Play Console
+6. Fill store listing (use details above)
+7. Complete content rating questionnaire
+8. Submit SMS permission declaration with video demo
+9. Submit for review (3-7 days)

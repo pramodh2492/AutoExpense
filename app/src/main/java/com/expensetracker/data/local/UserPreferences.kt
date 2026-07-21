@@ -29,6 +29,14 @@ class UserPreferences @Inject constructor(
         get() = prefs.getBoolean("is_onboarded", false)
         set(value) = prefs.edit().putBoolean("is_onboarded", value).apply()
 
+    var hasSeenSignInPrompt: Boolean
+        get() = prefs.getBoolean("has_seen_sign_in_prompt", false)
+        set(value) = prefs.edit().putBoolean("has_seen_sign_in_prompt", value).apply()
+
+    var hasCompletedOnboarding: Boolean
+        get() = prefs.getBoolean("has_completed_onboarding", false)
+        set(value) = prefs.edit().putBoolean("has_completed_onboarding", value).apply()
+
     fun addAccount(last4: String) {
         val current = userAccountNumbers.toMutableSet()
         current.add(last4)

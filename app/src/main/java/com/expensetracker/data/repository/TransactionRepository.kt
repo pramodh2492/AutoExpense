@@ -94,22 +94,24 @@ class TransactionRepository @Inject constructor(
      * - Same amount + same account + same day = duplicate
      */
     private suspend fun isDuplicateInDb(transaction: Transaction): Boolean {
-        // Narrow: same amount within 2 minutes
+        // Narrow: same amount + same type within 2 minutes
         val narrowStart = transaction.timestamp.minusMinutes(2)
         val narrowEnd = transaction.timestamp.plusMinutes(2)
         val narrowCount = dao.countDuplicatesNarrow(
             amount = transaction.amount,
+            type = transaction.type.name,
             windowStart = narrowStart,
             windowEnd = narrowEnd
         )
         if (narrowCount > 0) return true
 
-        // Same account + same day
+        // Same account + same type + same day
         if (transaction.accountInfo.isNotBlank()) {
             val dayStart = transaction.timestamp.toLocalDate().atStartOfDay()
             val dayEnd = dayStart.plusDays(1)
             val accountCount = dao.countDuplicatesSameAccount(
                 amount = transaction.amount,
+                type = transaction.type.name,
                 accountInfo = transaction.accountInfo,
                 windowStart = dayStart,
                 windowEnd = dayEnd
@@ -122,6 +124,10 @@ class TransactionRepository @Inject constructor(
 
     suspend fun update(transaction: Transaction) {
         dao.update(transaction)
+    }
+
+    suspend fun delete(transaction: Transaction) {
+        dao.deleteById(transaction.id)
     }
 
     suspend fun repairTransactionTypes(parser: com.expensetracker.sms.SmsParser) {

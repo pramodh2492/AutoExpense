@@ -61,7 +61,8 @@ fun TransactionItem(
     transaction: Transaction,
     onCategoryChange: ((TransactionCategory) -> Unit)? = null,
     onToggleSelfTransfer: (() -> Unit)? = null,
-    onRename: (() -> Unit)? = null
+    onRename: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
@@ -182,6 +183,15 @@ fun TransactionItem(
                     text = { Text("Rename merchant") },
                     onClick = {
                         onRename()
+                        showMenu = false
+                    }
+                )
+            }
+            if (onDelete != null) {
+                DropdownMenuItem(
+                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                    onClick = {
+                        onDelete()
                         showMenu = false
                     }
                 )
