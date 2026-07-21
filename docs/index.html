@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoExpense - Privacy Policy</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        h1 { color: #7C4DFF; }
+        h2 { color: #00E5FF; margin-top: 2em; }
+        a { color: #7C4DFF; }
+        table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        th, td { border: 1px solid #333; padding: 10px; text-align: left; }
+        th { background: #1a1a2e; color: #7C4DFF; }
+        .badge { display: inline-block; background: #7C4DFF; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.8em; margin: 4px; }
+    </style>
+</head>
+<body>
+    <h1>AutoExpense - Privacy Policy</h1>
+    <p><strong>Last updated: July 21, 2026</strong></p>
+
+    <h2>Overview</h2>
+    <p>AutoExpense reads your SMS messages to automatically track your financial transactions. Your privacy is our top priority.</p>
+
+    <h2>Data Collection</h2>
+    <h3>What we read:</h3>
+    <ul>
+        <li>SMS messages from known bank sender IDs (e.g., AXISBK, HDFCBK, SBIINB, CUBANK)</li>
+        <li>Only transactional messages containing debit/credit keywords</li>
+    </ul>
+
+    <h3>What we DO NOT read:</h3>
+    <ul>
+        <li>Personal messages</li>
+        <li>OTPs or verification codes</li>
+        <li>Promotional SMS</li>
+        <li>Messages from non-banking senders</li>
+    </ul>
+
+    <h2>Data Storage</h2>
+    <ul>
+        <li><strong>On-device processing:</strong> All SMS parsing and categorization happens locally on your device</li>
+        <li><strong>Cloud sync (optional):</strong> If you sign in with Google, your transaction data (amount, merchant, category, date) is stored in Google Firebase under your authenticated account</li>
+        <li><strong>Raw SMS text:</strong> Stored only on your device for reference, never uploaded to any server without your explicit consent</li>
+    </ul>
+
+    <h2>Data Sharing</h2>
+    <p>We do <strong>NOT</strong>:</p>
+    <ul>
+        <li>Sell your data to third parties</li>
+        <li>Share your financial information with advertisers</li>
+        <li>Upload your SMS to external servers for processing</li>
+        <li>Track your location or behavior</li>
+    </ul>
+
+    <h2>Permissions Used</h2>
+    <table>
+        <tr><th>Permission</th><th>Purpose</th></tr>
+        <tr><td>READ_SMS</td><td>Read bank transaction messages for expense tracking</td></tr>
+        <tr><td>RECEIVE_SMS</td><td>Detect new transactions in real-time</td></tr>
+        <tr><td>POST_NOTIFICATIONS</td><td>Send spending alerts and daily reminders</td></tr>
+        <tr><td>INTERNET</td><td>Optional cloud backup via Firebase</td></tr>
+    </table>
+
+    <h2>Data Security</h2>
+    <ul>
+        <li>Data is encrypted in transit (HTTPS/TLS)</li>
+        <li>Firebase data is protected by authentication and security rules</li>
+        <li>Firebase App Check ensures only the official app can access your data</li>
+        <li>Optional PIN + Biometric app lock for on-device protection</li>
+    </ul>
+
+    <h2>Data Deletion</h2>
+    <ul>
+        <li>All local data can be deleted by clearing app data or uninstalling the app</li>
+        <li>Cloud data can be deleted by signing out from Settings</li>
+        <li>You can request complete data deletion by contacting us</li>
+    </ul>
+
+    <h2>Third-Party Services</h2>
+    <p>We use the following third-party services:</p>
+    <ul>
+        <li><strong>Google Firebase:</strong> Authentication, cloud storage, crash reporting, analytics</li>
+        <li><strong>Google Play Services:</strong> Google Sign-In</li>
+    </ul>
+
+    <h2>Children's Privacy</h2>
+    <p>AutoExpense is not intended for use by children under 13. We do not knowingly collect data from children.</p>
+
+    <h2>Contact</h2>
+    <p>For questions about this privacy policy or to request data deletion:</p>
+    <p>Email: <a href="mailto:pramodh2492@gmail.com">pramodh2492@gmail.com</a></p>
+
+    <h2>Changes</h2>
+    <p>We may update this policy. Changes will be posted on this page with an updated date.</p>
+
+    <br>
+    <p style="color: #666; font-size: 0.9em;">&copy; 2026 AutoExpense. All rights reserved.</p>
+</body>
+</html>
