@@ -52,4 +52,12 @@ class UserPreferences @Inject constructor(
     var geminiApiKey: String
         get() = prefs.getString("gemini_api_key", "") ?: ""
         set(value) = prefs.edit().putString("gemini_api_key", value).apply()
+
+    var lastSmsTimestamp: Long
+        get() = prefs.getLong("last_sms_timestamp", 0L)
+        set(value) = prefs.edit().putLong("last_sms_timestamp", value).apply()
+
+    var lastRepairVersion: Int
+        get() = prefs.getInt("last_repair_version", 0)
+        set(value) = prefs.edit().putInt("last_repair_version", value).apply()
 }

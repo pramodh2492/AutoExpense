@@ -19,15 +19,26 @@ class SmsScanner @Inject constructor(
     private val smsParser: SmsParser
 ) {
 
-    fun scanExistingSms(daysBack: Int = 90): List<Transaction> {
+    data class ScanResult(
+        val transactions: List<Transaction>,
+        val maxTimestamp: Long
+    )
+
+    fun scanExistingSms(sinceTimestamp: Long = 0L, daysBack: Int = 90): ScanResult {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            return emptyList()
+            return ScanResult(emptyList(), sinceTimestamp)
         }
 
         val transactions = mutableListOf<Transaction>()
-        val cutoff = System.currentTimeMillis() - (daysBack.toLong() * 24 * 60 * 60 * 1000)
+        // Use sinceTimestamp if available (subsequent scans), else fall back to daysBack (first scan)
+        val cutoff = if (sinceTimestamp > 0L) {
+            sinceTimestamp
+        } else {
+            System.currentTimeMillis() - (daysBack.toLong() * 24 * 60 * 60 * 1000)
+        }
+        var maxTimestampFound = sinceTimestamp
 
         try {
             val cursor = context.contentResolver.query(
@@ -47,6 +58,11 @@ class SmsScanner @Inject constructor(
                     val sender = it.getString(addressIdx) ?: continue
                     val body = it.getString(bodyIdx) ?: continue
                     val dateMillis = it.getLong(dateIdx)
+
+                    if (dateMillis > maxTimestampFound) {
+                        maxTimestampFound = dateMillis
+                    }
+
                     val timestamp = LocalDateTime.ofInstant(
                         Instant.ofEpochMilli(dateMillis),
                         ZoneId.systemDefault()
@@ -58,9 +74,9 @@ class SmsScanner @Inject constructor(
                 }
             }
         } catch (e: SecurityException) {
-            return emptyList()
+            return ScanResult(emptyList(), sinceTimestamp)
         }
 
-        return transactions
+        return ScanResult(transactions, maxTimestampFound)
     }
 }

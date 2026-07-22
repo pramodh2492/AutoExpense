@@ -436,7 +436,7 @@ class SmsParser @Inject constructor(
             combined.containsAny("sip", "mutual fund", "mf purchase", "groww", "zerodha", "kuvera", "coin", "ppf", "nps", "fixed deposit", "fd ", "recurring deposit", "rd ", "sbi mf", "hdfc mf", "icici pru", "axis mf", "nippon", "sbi life", "lic", "investment", "smallcase") ->
                 TransactionCategory.SAVINGS
 
-            combined.containsAny("petrol", "diesel", "fuel", "hp ", "iocl", "bpcl", "indian oil", "bharat petroleum", "shell", "nayara") ->
+            combined.containsAny("petrol", "diesel", "fuel", "hp petrol", "hp pump", "iocl", "bpcl", "indian oil", "bharat petroleum", "shell", "nayara") ->
                 TransactionCategory.FUEL
 
             combined.containsAny("makemytrip", "goibibo", "hotel", "flight", "oyo", "airbnb", "booking.com", "cleartrip", "yatra", "easemytrip", "ixigo") ->

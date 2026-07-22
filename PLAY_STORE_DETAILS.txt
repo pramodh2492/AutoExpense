@@ -119,7 +119,7 @@ Rating: Everyone (E)
 ================================================================
 DEVELOPER ACCOUNT
 ================================================================
-Developer Name: Lazybones
+Developer Name: LazySloth
 Contact Email: pramodh2492@gmail.com
 Play Console: https://play.google.com/console
 

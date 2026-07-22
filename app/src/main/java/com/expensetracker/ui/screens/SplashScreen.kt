@@ -108,7 +108,7 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
                 color = Color.White.copy(alpha = 0.6f)
             )
             Text(
-                text = "Lazybones",
+                text = "LazySloth",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 2.sp
@@ -117,7 +117,7 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "© 2026 Lazybones. All rights reserved.",
+                text = "© 2026 LazySloth. All rights reserved.",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.5f),
                 textAlign = TextAlign.Center

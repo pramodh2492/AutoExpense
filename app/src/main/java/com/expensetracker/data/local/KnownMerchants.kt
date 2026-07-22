@@ -33,15 +33,6 @@ object KnownMerchants {
             }
         }
 
-        // Check naming patterns against SMS body as fallback
-        if (bodyLower.isNotEmpty()) {
-            for ((pattern, category) in namingPatterns) {
-                if (pattern.containsMatchIn(bodyLower)) {
-                    return category
-                }
-            }
-        }
-
         return null
     }
 
@@ -92,7 +83,7 @@ object KnownMerchants {
 
         // Chennai specific restaurants & chains
         "mangifera", "ekayars", "sri sai dosa",
-        "saravana bhavan", "sangeetha", "sangeetha restaurant",
+        "saravana bhavan", "sangeetha restaurant", "sangeetha veg",
         "adyar ananda bhavan", "a2b", "ananda bhavan",
         "hot chips", "junior kuppanna", "kuppanna",
         "murugan idli", "murugan idli shop",
@@ -196,7 +187,7 @@ object KnownMerchants {
         "practo", "doctor", "clinic", "dental",
         "lab", "diagnostic", "thyrocare", "dr lal path",
         "srl diagnostics", "metropolis",
-        "optical", "lenskart", "titan eye",
+        "optical",
         "gym", "cult.fit", "fitness",
     )
 
@@ -222,7 +213,6 @@ object KnownMerchants {
         "ppf", "nps", "national pension",
         "fixed deposit", "recurring deposit",
         "sovereign gold bond", "sgb",
-        "lic", "sbi life", "hdfc life", "max life",
         "investment", "stock", "share",
     )
 
@@ -247,8 +237,11 @@ object KnownMerchants {
     )
 
     // The main database: keywords → category
+    // Order matters — first match wins. Travel before food so specific hotel brands
+    // (Taj Hotel, Marriott) match before generic "hotel" in food keywords.
     private val merchantDatabase = listOf(
         groceryKeywords to TransactionCategory.GROCERIES,
+        travelKeywords to TransactionCategory.TRAVEL,
         foodKeywords to TransactionCategory.FOOD_DINING,
         transportKeywords to TransactionCategory.TRANSPORT,
         shoppingKeywords to TransactionCategory.SHOPPING,
@@ -258,14 +251,12 @@ object KnownMerchants {
         educationKeywords to TransactionCategory.EDUCATION,
         savingsKeywords to TransactionCategory.SAVINGS,
         fuelKeywords to TransactionCategory.FUEL,
-        travelKeywords to TransactionCategory.TRAVEL,
     )
 
     // Naming pattern regex — catches local shop naming conventions
     private val namingPatterns = listOf(
-        // Grocery naming patterns — "ST" is common abbreviation for Store
+        // Grocery naming patterns
         Regex("""\b(mart|store|stores|traders|trading|provision|kirana)\b""") to TransactionCategory.GROCERIES,
-        Regex("""\bST\b""") to TransactionCategory.GROCERIES,
         Regex("""\b(vegetables|veggies|fruits|greens|organic)\b""") to TransactionCategory.GROCERIES,
         Regex("""\b(supermarket|hypermarket|departmental)\b""") to TransactionCategory.GROCERIES,
         Regex("""\b(oil|rice|flour|atta|dal)\s*(mill|store|shop|centre)""") to TransactionCategory.GROCERIES,

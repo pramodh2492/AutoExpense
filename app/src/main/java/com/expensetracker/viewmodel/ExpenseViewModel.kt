@@ -106,14 +106,24 @@ class ExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                // Repair old transactions with wrong credit/debit type
-                repository.repairTransactionTypes(smsParser)
-                // Scan for new SMS
-                val transactions = smsScanner.scanExistingSms()
-                if (transactions.isNotEmpty()) {
-                    repository.insertAll(transactions)
-                    autoDetectSalaryAccount(transactions)
-                    analyticsHelper.logSmsScanned(transactions.size)
+                // Repair old transactions with wrong credit/debit type — only once per version
+                val CURRENT_REPAIR_VERSION = 2
+                if (userPreferences.lastRepairVersion < CURRENT_REPAIR_VERSION) {
+                    repository.repairTransactionTypes(smsParser)
+                    userPreferences.lastRepairVersion = CURRENT_REPAIR_VERSION
+                }
+                // Scan only new SMS since last scan (first scan uses 90-day fallback)
+                val scanResult = smsScanner.scanExistingSms(
+                    sinceTimestamp = userPreferences.lastSmsTimestamp
+                )
+                if (scanResult.transactions.isNotEmpty()) {
+                    repository.insertAll(scanResult.transactions)
+                    autoDetectSalaryAccount(scanResult.transactions)
+                    analyticsHelper.logSmsScanned(scanResult.transactions.size)
+                }
+                // Save the latest SMS timestamp for next scan
+                if (scanResult.maxTimestamp > userPreferences.lastSmsTimestamp) {
+                    userPreferences.lastSmsTimestamp = scanResult.maxTimestamp
                 }
             } catch (e: Exception) {
                 // Silently handle - permission not granted or other issue

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AutoExpense</string>
-    <string name="company_name">Lazybones</string>
-    <string name="copyright">© 2026 Lazybones. All rights reserved.</string>
+    <string name="company_name">LazySloth</string>
+    <string name="copyright">© 2026 LazySloth. All rights reserved.</string>
 </resources>

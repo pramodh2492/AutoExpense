@@ -404,7 +404,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "AutoExpense by Lazybones",
+            text = "AutoExpense by LazySloth",
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -412,7 +412,7 @@ fun SettingsScreen(
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Text(
-            text = "© 2026 Lazybones. All rights reserved.",
+            text = "© 2026 LazySloth. All rights reserved.",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline,
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),

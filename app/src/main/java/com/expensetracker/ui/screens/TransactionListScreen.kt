@@ -26,10 +26,17 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismiss
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDismissState
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,6 +74,9 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
     var selectedFilter by remember { mutableStateOf(ViewFilter.DEBITS) }
     var searchQuery by remember { mutableStateOf("") }
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var lastDeletedTransaction by remember { mutableStateOf<Transaction?>(null) }
 
     val filteredByType = when (selectedFilter) {
         ViewFilter.DEBITS -> transactions.filter { it.type == TransactionType.DEBIT }
@@ -92,9 +102,18 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
 
     val totalAmount = filtered.sumOf { it.amount }
 
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = 80.dp)
+            )
+        }
+    ) { scaffoldPadding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(scaffoldPadding)
             .padding(16.dp)
     ) {
         Text(
@@ -193,7 +212,19 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                         val dismissState = rememberDismissState(
                             confirmValueChange = { dismissValue ->
                                 if (dismissValue == DismissValue.DismissedToStart) {
+                                    lastDeletedTransaction = transaction
                                     viewModel.deleteTransaction(transaction)
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "Transaction deleted",
+                                            actionLabel = "UNDO",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            lastDeletedTransaction?.let { viewModel.addManualTransaction(it) }
+                                        }
+                                        lastDeletedTransaction = null
+                                    }
                                     true
                                 } else {
                                     false
@@ -240,7 +271,19 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                                         renameText = transaction.merchant
                                     },
                                     onDelete = {
+                                        lastDeletedTransaction = transaction
                                         viewModel.deleteTransaction(transaction)
+                                        scope.launch {
+                                            val result = snackbarHostState.showSnackbar(
+                                                message = "Transaction deleted",
+                                                actionLabel = "UNDO",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                            if (result == SnackbarResult.ActionPerformed) {
+                                                lastDeletedTransaction?.let { viewModel.addManualTransaction(it) }
+                                            }
+                                            lastDeletedTransaction = null
+                                        }
                                     }
                                 )
                             }
@@ -249,6 +292,7 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                 }
             }
         }
+    }
     }
 
     if (editingTransaction != null) {

@@ -32,9 +32,6 @@ class TransactionRepository @Inject constructor(
         val learned = merchantCategoryDao.getCategoryForMerchant(transaction.merchant.lowercase())
         val final = if (learned != null) transaction.copy(category = learned) else transaction
         dao.insert(final)
-
-        // Auto-sync to cloud
-        try { firestoreService.syncTransaction(final) } catch (_: Exception) {}
     }
 
     suspend fun insertAll(transactions: List<Transaction>) {
