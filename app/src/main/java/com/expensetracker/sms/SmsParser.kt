@@ -125,6 +125,17 @@ class SmsParser @Inject constructor(
         Regex("""DO NOT SHARE""", RegexOption.IGNORE_CASE),
         Regex("""OTP|otp|One Time Password"""),
 
+        // Balance/passbook/statement messages (not transactions)
+        Regex("""(?:available|avl\.?|avail)\s*(?:bal|balance)""", RegexOption.IGNORE_CASE),
+        Regex("""balance\s*(?:is|:)\s*(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE),
+        Regex("""passbook""", RegexOption.IGNORE_CASE),
+        Regex("""passbo""", RegexOption.IGNORE_CASE),
+        Regex("""account\s+statement""", RegexOption.IGNORE_CASE),
+        Regex("""mini\s*statement""", RegexOption.IGNORE_CASE),
+        Regex("""your\s+balance""", RegexOption.IGNORE_CASE),
+        Regex("""contribution\s+of\s+Rs""", RegexOption.IGNORE_CASE),
+        Regex("""(?:PF|EPF|provident\s+fund)\s+(?:balance|contribution)""", RegexOption.IGNORE_CASE),
+
         // Failed/declined transactions
         Regex("""(?:has\s+)?failed""", RegexOption.IGNORE_CASE),
         Regex("""(?:could\s+not|cannot|unable)\s+(?:be\s+)?(?:processed|completed|debited)""", RegexOption.IGNORE_CASE),
@@ -155,10 +166,27 @@ class SmsParser @Inject constructor(
         Regex("""pre[- ]?approved""", RegexOption.IGNORE_CASE),
         Regex("""loan\s+offer""", RegexOption.IGNORE_CASE),
         Regex("""credit\s+limit\s+(?:increased|enhanced)""", RegexOption.IGNORE_CASE),
+
+        // Wallet/app credits (not real bank credits)
+        Regex("""(?:wallet|account)\s+(?:has been\s+)?credited.*(?:use|shop|valid|expir)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:cashback|reward|bonus|coupon|coins?)\s+(?:of\s+)?(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE),
+        Regex("""credited\s+to\s+(?:your\s+)?(?:wallet|account).*(?:shop|order|app|code)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:bewakoof|myntra|flipkart|amazon|meesho|ajio|nykaa).*(?:wallet|credit|cashback|reward)""", RegexOption.IGNORE_CASE),
+    )
+
+    // Non-bank sender IDs that should be ignored even if they match the format
+    private val excludedSenders = listOf(
+        "BEWKOF", "MYNTRA", "FLPKRT", "AMAZIN", "MEESHO", "AJIOOO",
+        "NYKAA", "SWIGGY", "ZOMATO", "DUNZO", "CRED", "PHONEPE",
+        "PAYTM", "GPAY", "OLACAB", "RAPIDO", "UBER"
     )
 
     fun isTransactionalSms(sender: String, body: String): Boolean {
         val senderUpper = sender.uppercase().replace(Regex("[^A-Z0-9]"), "")
+
+        // Exclude known non-bank senders (shopping apps, wallets)
+        if (excludedSenders.any { senderUpper.contains(it) }) return false
+
         val isBankSender = bankSenders.any { senderUpper.contains(it) } ||
                 senderUpper.contains("BANK") ||
                 Regex("""[A-Z]{2}[A-Z]{4,}""").containsMatchIn(senderUpper)
@@ -195,7 +223,7 @@ class SmsParser @Inject constructor(
         return Transaction(
             amount = amount,
             merchant = if (isSalary) "Salary" else merchant,
-            category = if (isSalary) TransactionCategory.TRANSFER else category,
+            category = if (isSalary) TransactionCategory.SALARY else category,
             type = type,
             source = source,
             accountInfo = accountInfo,
@@ -228,10 +256,40 @@ class SmsParser @Inject constructor(
         val lower = body.lowercase()
         if (lower.containsAny("self", "own account", "self transfer", "self tfr")) return true
 
+        // Credit card bill payments (money going to your own CC = not a real expense)
+        if (lower.containsAny("credit card bill", "cc bill", "card payment", "cc payment",
+                "towards credit card", "towards your card", "paid to.*credit card",
+                "credit card.*payment")) {
+            val userAccounts = userPreferences.userAccountNumbers
+            // If any of user's account numbers appear in the SMS, it's paying own CC
+            if (userAccounts.any { body.contains(it) }) return true
+        }
+
         val userAccounts = userPreferences.userAccountNumbers
-        if (userAccounts.size < 2) return false
-        val mentionsMultiple = userAccounts.count { body.contains(it) } >= 2
-        return mentionsMultiple
+        if (userAccounts.isEmpty()) return false
+
+        // If SMS mentions 2+ of user's accounts = transfer between own accounts
+        val mentionedAccounts = userAccounts.count { body.contains(it) }
+        if (mentionedAccounts >= 2) return true
+
+        // If SMS says "credited to" or "debited from" another of user's accounts
+        // Pattern: "credited to a/c no. XXXX1234" where 1234 is user's account
+        val destinationPattern = Regex("""(?:credited\s+to|transferred\s+to|sent\s+to)\s+.*?(\d{4})""", RegexOption.IGNORE_CASE)
+        val destinationMatch = destinationPattern.find(body)
+        if (destinationMatch != null) {
+            val destAccount = destinationMatch.groupValues[1]
+            if (destAccount in userAccounts) return true
+        }
+
+        // Pattern: "debited from a/c no. XXXX1234" where both source and dest are user's
+        val sourcePattern = Regex("""(?:debited\s+from|from\s+a/c).*?(\d{4})""", RegexOption.IGNORE_CASE)
+        val sourceMatch = sourcePattern.find(body)
+        if (sourceMatch != null) {
+            val sourceAccount = sourceMatch.groupValues[1]
+            if (sourceAccount in userAccounts && mentionedAccounts >= 1) return true
+        }
+
+        return false
     }
 
     private fun extractAmount(body: String): Double? {

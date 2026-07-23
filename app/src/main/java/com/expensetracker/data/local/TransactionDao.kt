@@ -28,6 +28,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET category = :category WHERE LOWER(merchant) = LOWER(:merchant)")
     suspend fun updateCategoryForMerchant(merchant: String, category: TransactionCategory)
 
+    @Query("UPDATE transactions SET category = :category WHERE LOWER(merchant) = LOWER(:merchant) AND type = :type")
+    suspend fun updateCategoryForMerchantAndType(merchant: String, type: String, category: TransactionCategory)
+
     @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
     fun getAllTransactions(): Flow<List<Transaction>>
 
@@ -107,6 +110,12 @@ interface TransactionDao {
         windowStart: LocalDateTime,
         windowEnd: LocalDateTime
     ): Int
+
+    /**
+     * Get all transactions in a date range (suspend, not Flow) for tax calculations.
+     */
+    @Query("SELECT * FROM transactions WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
+    suspend fun getTransactionsInRange(start: LocalDateTime, end: LocalDateTime): List<Transaction>
 }
 
 data class CategoryTotal(

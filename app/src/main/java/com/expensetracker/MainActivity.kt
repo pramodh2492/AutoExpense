@@ -37,6 +37,7 @@ import androidx.navigation.compose.rememberNavController
 import com.expensetracker.analytics.AnalyticsHelper
 import com.expensetracker.data.local.RateAppManager
 import com.expensetracker.data.local.UserPreferences
+import com.expensetracker.tax.TaxCalculator
 import com.expensetracker.ui.components.RateDialog
 import com.expensetracker.ui.navigation.NavGraph
 import com.expensetracker.ui.navigation.Screen
@@ -60,6 +61,7 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var authManager: com.expensetracker.security.AuthManager
     @Inject lateinit var rateAppManager: RateAppManager
     @Inject lateinit var analyticsHelper: AnalyticsHelper
+    @Inject lateinit var taxCalculator: TaxCalculator
 
     private var onPermissionGranted: (() -> Unit)? = null
     private var signedInEmail = mutableStateOf<String?>(null)
@@ -124,6 +126,7 @@ class MainActivity : FragmentActivity() {
 
                 if (!hasCompletedOnboarding) {
                     OnboardingScreen(
+                        userPreferences = userPreferences,
                         onComplete = {
                             userPreferences.hasCompletedOnboarding = true
                             hasCompletedOnboarding = true
@@ -241,6 +244,16 @@ class MainActivity : FragmentActivity() {
                                 }
                             )
                             NavigationBarItem(
+                                icon = { Icon(Icons.Default.Analytics, contentDescription = "Tax") },
+                                label = { Text("Tax", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                                selected = currentRoute == Screen.Tax.route,
+                                onClick = {
+                                    navController.navigate(Screen.Tax.route) {
+                                        popUpTo(Screen.Dashboard.route)
+                                    }
+                                }
+                            )
+                            NavigationBarItem(
                                 icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                                 label = { Text("Settings", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
                                 selected = currentRoute == Screen.Settings.route,
@@ -273,6 +286,7 @@ class MainActivity : FragmentActivity() {
                         budgetPreferences = budgetPreferences,
                         notificationHelper = notificationHelper,
                         appLockManager = appLockManager,
+                        taxCalculator = taxCalculator,
                         onSignIn = {
                             try {
                                 googleSignInLauncher.launch(authManager.getSignInIntent())

@@ -18,56 +18,48 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.expensetracker.data.local.UserPreferences
 
-data class OnboardingPage(
-    val icon: ImageVector,
-    val title: String,
-    val description: String
-)
-
-private val onboardingPages = listOf(
-    OnboardingPage(
-        icon = Icons.Default.PhoneAndroid,
-        title = "Auto-Track Expenses",
-        description = "The app reads your bank SMS automatically and records every transaction. No manual entry needed."
-    ),
-    OnboardingPage(
-        icon = Icons.Default.PieChart,
-        title = "Smart Categories",
-        description = "Expenses are auto-categorized into Food, Transport, Shopping, Bills and more. You can always change the category."
-    ),
-    OnboardingPage(
-        icon = Icons.Default.Notifications,
-        title = "Set Budgets & Get Alerts",
-        description = "Set spending limits for each category and get notified when you are close to exceeding them."
-    )
-)
+private val TOTAL_PAGES = 4
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun OnboardingScreen(onComplete: () -> Unit) {
+fun OnboardingScreen(
+    userPreferences: UserPreferences? = null,
+    onComplete: () -> Unit
+) {
     var currentPage by remember { mutableIntStateOf(0) }
 
     Column(
@@ -81,14 +73,14 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
         ) {
-            if (currentPage < onboardingPages.size - 1) {
+            if (currentPage < TOTAL_PAGES - 1) {
                 TextButton(onClick = onComplete) {
                     Text("Skip")
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         // Animated page content
         AnimatedContent(
@@ -100,7 +92,24 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             modifier = Modifier.weight(1f),
             label = "onboarding_page"
         ) { page ->
-            OnboardingPageContent(onboardingPages[page])
+            when (page) {
+                0 -> InfoPage(
+                    icon = Icons.Default.PhoneAndroid,
+                    title = "Auto-Track Expenses",
+                    description = "The app reads your bank SMS automatically and records every transaction. No manual entry needed."
+                )
+                1 -> InfoPage(
+                    icon = Icons.Default.PieChart,
+                    title = "Smart Categories",
+                    description = "Expenses are auto-categorized into Food, Transport, Shopping, Bills and more. You can always change the category."
+                )
+                2 -> InfoPage(
+                    icon = Icons.Default.Notifications,
+                    title = "Set Budgets & Get Alerts",
+                    description = "Set spending limits for each category and get notified when you are close to exceeding them."
+                )
+                3 -> AccountSetupPage(userPreferences = userPreferences)
+            }
         }
 
         // Dots indicator
@@ -108,7 +117,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(vertical = 24.dp)
         ) {
-            onboardingPages.forEachIndexed { index, _ ->
+            repeat(TOTAL_PAGES) { index ->
                 Box(
                     modifier = Modifier
                         .size(if (index == currentPage) 10.dp else 8.dp)
@@ -122,7 +131,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         }
 
         // Bottom buttons
-        if (currentPage < onboardingPages.size - 1) {
+        if (currentPage < TOTAL_PAGES - 1) {
             Button(
                 onClick = { currentPage++ },
                 modifier = Modifier.fillMaxWidth()
@@ -143,7 +152,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
 }
 
 @Composable
-private fun OnboardingPageContent(page: OnboardingPage) {
+private fun InfoPage(icon: ImageVector, title: String, description: String) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -157,18 +166,18 @@ private fun OnboardingPageContent(page: OnboardingPage) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = page.icon,
-                contentDescription = page.title,
+                imageVector = icon,
+                contentDescription = null,
                 modifier = Modifier.size(60.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = page.title,
-            style = MaterialTheme.typography.headlineMedium,
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
@@ -176,11 +185,145 @@ private fun OnboardingPageContent(page: OnboardingPage) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = page.description,
+            text = description,
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp)
+        )
+    }
+}
+
+@Composable
+private fun AccountSetupPage(userPreferences: UserPreferences?) {
+    var accountInput by remember { mutableStateOf("") }
+    var accounts by remember { mutableStateOf(userPreferences?.userAccountNumbers ?: emptySet()) }
+    var salaryInput by remember { mutableStateOf(userPreferences?.monthlySalary?.let { if (it > 0) it.toInt().toString() else "" } ?: "") }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.CreditCard,
+                contentDescription = null,
+                modifier = Modifier.size(60.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Your Accounts",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Add last 4 digits of all your bank accounts AND credit cards. This helps detect:\n• Transfers between your accounts (not counted as expense)\n• Credit card bill payments (not double-counted)",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Account input
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = accountInput,
+                onValueChange = {
+                    if (it.length <= 4 && it.all { c -> c.isDigit() }) accountInput = it
+                },
+                label = { Text("Last 4 digits") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(
+                onClick = {
+                    if (accountInput.length == 4) {
+                        userPreferences?.addAccount(accountInput)
+                        accounts = userPreferences?.userAccountNumbers ?: emptySet()
+                        accountInput = ""
+                    }
+                }
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Show added accounts
+        if (accounts.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                accounts.forEach { account ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "**$account",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Monthly salary input
+        Text(
+            text = "Monthly Salary (optional)",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Used for tax estimation. You can change this later.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = salaryInput,
+            onValueChange = {
+                salaryInput = it.filter { c -> c.isDigit() }
+                it.toDoubleOrNull()?.let { salary ->
+                    userPreferences?.monthlySalary = salary
+                    userPreferences?.hasSalaryConfigured = true
+                }
+            },
+            label = { Text("Monthly salary (₹)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }

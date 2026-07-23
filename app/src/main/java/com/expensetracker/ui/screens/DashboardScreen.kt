@@ -1,12 +1,7 @@
 package com.expensetracker.ui.screens
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,6 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,17 +51,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import com.expensetracker.data.local.Insight
 import com.expensetracker.data.local.InsightType
+import com.expensetracker.tax.TaxCalculator
+import com.expensetracker.tax.TaxInsights
 import com.expensetracker.ui.components.CategoryPieChart
 import com.expensetracker.ui.components.TransactionItem
+import com.expensetracker.ui.navigation.Screen
 import com.expensetracker.viewmodel.ExpenseViewModel
 import com.expensetracker.viewmodel.TimePeriod
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
 
 @Composable
 fun DashboardScreen(
     viewModel: ExpenseViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    taxCalculator: TaxCalculator? = null
 ) {
     val stats by viewModel.stats.collectAsState()
     val transactions by viewModel.transactions.collectAsState()
@@ -73,6 +76,16 @@ fun DashboardScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     val context = LocalContext.current
+
+    // Tax insights state
+    var taxInsights by remember { mutableStateOf<TaxInsights?>(null) }
+    LaunchedEffect(Unit) {
+        if (taxCalculator != null) {
+            taxInsights = withContext(Dispatchers.IO) {
+                try { taxCalculator.calculateTaxInsights() } catch (_: Exception) { null }
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -100,22 +113,10 @@ fun DashboardScreen(
                         )
                     }
 
-                    val infiniteTransition = rememberInfiniteTransition(label = "refresh")
-                    val rotation by infiniteTransition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 360f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1000, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart
-                        ),
-                        label = "rotation"
-                    )
-
                     IconButton(onClick = { viewModel.scanExistingSms() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh",
-                            modifier = if (isLoading) Modifier.graphicsLayer { rotationZ = rotation } else Modifier,
                             tint = if (isLoading) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -138,9 +139,13 @@ fun DashboardScreen(
         }
 
         item {
+            var showDatePicker by remember { mutableStateOf(false) }
+            var startDateText by remember { mutableStateOf("") }
+            var endDateText by remember { mutableStateOf("") }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 TimePeriod.entries.take(4).forEach { period ->
                     FilterChip(
@@ -149,6 +154,54 @@ fun DashboardScreen(
                         label = { Text(period.label, style = MaterialTheme.typography.labelSmall) }
                     )
                 }
+                FilterChip(
+                    selected = selectedPeriod == TimePeriod.CUSTOM,
+                    onClick = { showDatePicker = true },
+                    label = { Text("Custom", style = MaterialTheme.typography.labelSmall) }
+                )
+            }
+
+            if (showDatePicker) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    title = { Text("Select date range") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Start date (DD-MM-YYYY)", style = MaterialTheme.typography.bodySmall)
+                            androidx.compose.material3.OutlinedTextField(
+                                value = startDateText,
+                                onValueChange = { startDateText = it },
+                                placeholder = { Text("01-07-2026") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text("End date (DD-MM-YYYY)", style = MaterialTheme.typography.bodySmall)
+                            androidx.compose.material3.OutlinedTextField(
+                                value = endDateText,
+                                onValueChange = { endDateText = it },
+                                placeholder = { Text("23-07-2026") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            try {
+                                val formatter = java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")
+                                val start = java.time.LocalDate.parse(startDateText, formatter).atStartOfDay()
+                                val end = java.time.LocalDate.parse(endDateText, formatter).atTime(23, 59, 59)
+                                viewModel.setCustomDateRange(start, end)
+                                showDatePicker = false
+                            } catch (_: Exception) { }
+                        }) { Text("Apply") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = { showDatePicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
 
@@ -191,6 +244,7 @@ fun DashboardScreen(
                 }
             }
         }
+
 
         // Only show stats and transactions when we have data
         if (transactions.isNotEmpty()) {

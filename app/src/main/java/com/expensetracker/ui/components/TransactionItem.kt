@@ -236,6 +236,7 @@ fun getCategoryStyle(category: TransactionCategory): CategoryStyle {
         TransactionCategory.ENTERTAINMENT -> CategoryStyle(Icons.Default.Movie, Color(0xFFE91E63))
         TransactionCategory.HEALTH -> CategoryStyle(Icons.Default.FitnessCenter, Color(0xFF00BCD4))
         TransactionCategory.EDUCATION -> CategoryStyle(Icons.Default.School, Color(0xFFFFC107))
+        TransactionCategory.SALARY -> CategoryStyle(Icons.Default.AccountBalance, Color(0xFF2E7D32))
         TransactionCategory.SAVINGS -> CategoryStyle(Icons.Default.AccountBalanceWallet, Color(0xFF26A69A))
         TransactionCategory.TRANSFER -> CategoryStyle(Icons.Default.SwapHoriz, Color(0xFF8BC34A))
         TransactionCategory.ATM_WITHDRAWAL -> CategoryStyle(Icons.Default.AccountBalance, Color(0xFF607D8B))

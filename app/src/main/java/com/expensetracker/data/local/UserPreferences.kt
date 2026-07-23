@@ -29,6 +29,14 @@ class UserPreferences @Inject constructor(
         get() = prefs.getBoolean("is_onboarded", false)
         set(value) = prefs.edit().putBoolean("is_onboarded", value).apply()
 
+    var monthlySalary: Double
+        get() = prefs.getFloat("monthly_salary", 0f).toDouble()
+        set(value) = prefs.edit().putFloat("monthly_salary", value.toFloat()).apply()
+
+    var hasSalaryConfigured: Boolean
+        get() = prefs.getBoolean("has_salary_configured", false)
+        set(value) = prefs.edit().putBoolean("has_salary_configured", value).apply()
+
     var hasSeenSignInPrompt: Boolean
         get() = prefs.getBoolean("has_seen_sign_in_prompt", false)
         set(value) = prefs.edit().putBoolean("has_seen_sign_in_prompt", value).apply()

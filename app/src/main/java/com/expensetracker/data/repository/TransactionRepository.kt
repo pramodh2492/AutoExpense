@@ -29,7 +29,12 @@ class TransactionRepository @Inject constructor(
         // Smart dedup: skip if same amount within 5-minute window already exists
         if (isDuplicateInDb(transaction)) return
 
-        val learned = merchantCategoryDao.getCategoryForMerchant(transaction.merchant.lowercase())
+        // Check type-specific mapping first (e.g., "amazon|CREDIT" → Salary)
+        val typeKey = "${transaction.merchant.lowercase()}|${transaction.type.name}"
+        val learnedByType = merchantCategoryDao.getCategoryForMerchant(typeKey)
+        val learnedPlain = merchantCategoryDao.getCategoryForMerchant(transaction.merchant.lowercase())
+        val learned = learnedByType ?: learnedPlain
+
         val final = if (learned != null) transaction.copy(category = learned) else transaction
         dao.insert(final)
     }
@@ -44,7 +49,9 @@ class TransactionRepository @Inject constructor(
         val nonDuplicates = batchDeduped.filter { !isDuplicateInDb(it) }
 
         val updated = nonDuplicates.map { txn ->
-            val learned = mappings[txn.merchant.lowercase()]
+            // Check type-specific mapping first, then plain
+            val typeKey = "${txn.merchant.lowercase()}|${txn.type.name}"
+            val learned = mappings[typeKey] ?: mappings[txn.merchant.lowercase()]
             if (learned != null) txn.copy(category = learned) else txn
         }
         dao.insertAll(updated)
@@ -138,19 +145,24 @@ class TransactionRepository @Inject constructor(
     }
 
     suspend fun updateCategoryAndLearn(transaction: Transaction, newCategory: TransactionCategory) {
-        // Update ALL transactions from this merchant (past + current)
-        dao.updateCategoryForMerchant(transaction.merchant, newCategory)
-        // Save the mapping so future transactions auto-categorize
+        // Update transactions from this merchant WITH SAME TYPE only
+        // This prevents Amazon salary (CREDIT) from changing Amazon shopping (DEBIT)
+        dao.updateCategoryForMerchantAndType(transaction.merchant, transaction.type.name, newCategory)
+
+        // Save ONLY type-specific mapping: "merchant|TYPE" → category
+        // Do NOT save plain merchant mapping — it would override the other type
+        val mappingKey = "${transaction.merchant.lowercase()}|${transaction.type.name}"
         merchantCategoryDao.save(
             MerchantCategoryMapping(
-                merchant = transaction.merchant.lowercase(),
+                merchant = mappingKey,
                 category = newCategory
             )
         )
+
         // Sync mapping to cloud
         try {
             firestoreService.syncMerchantMappings(
-                listOf(transaction.merchant.lowercase() to newCategory.name)
+                listOf(mappingKey to newCategory.name)
             )
         } catch (_: Exception) {}
     }

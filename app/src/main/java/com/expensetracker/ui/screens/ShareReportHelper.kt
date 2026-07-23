@@ -23,6 +23,7 @@ object ShareReportHelper {
             TransactionCategory.ENTERTAINMENT -> "🎬"
             TransactionCategory.HEALTH -> "🏥"
             TransactionCategory.EDUCATION -> "📚"
+            TransactionCategory.SALARY -> "💵"
             TransactionCategory.SAVINGS -> "💰"
             TransactionCategory.TRANSFER -> "🔄"
             TransactionCategory.ATM_WITHDRAWAL -> "🏧"

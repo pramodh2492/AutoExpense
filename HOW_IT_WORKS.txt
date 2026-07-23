@@ -1,0 +1,445 @@
+================================================================
+AUTOEXPENSE - DETAILED TECHNICAL DOCUMENTATION
+================================================================
+Company: LazySloth
+Developer: Pramodh V
+Version: 1.0.0
+================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. APP ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Technology Stack:
+- Language: Kotlin
+- UI Framework: Jetpack Compose (Material 3)
+- Architecture: MVVM (Model-View-ViewModel)
+- Dependency Injection: Hilt
+- Local Database: Room (SQLite)
+- Cloud: Firebase (Auth, Firestore, Crashlytics, Analytics, Remote Config, App Check)
+- Background Work: WorkManager
+- Build System: Gradle (Kotlin DSL)
+
+Project Structure:
+/app/src/main/java/com/expensetracker/
+├── ai/                  → AI features (predictions, query engine)
+├── analytics/           → Firebase Analytics helper
+├── data/
+│   ├── local/           → Room DB, DAOs, SharedPreferences
+│   ├── model/           → Data classes (Transaction, ExpenseStats)
+│   ├── remote/          → Firestore service, Remote Config
+│   └── repository/      → TransactionRepository (single source of truth)
+├── di/                  → Hilt dependency injection module
+├── notification/        → Notification helper, UPI detector
+├── security/            → App lock, Auth manager
+├── sms/                 → SMS parser, receiver, scanner
+├── ui/
+│   ├── components/      → Reusable composables (TransactionItem, PieChart)
+│   ├── navigation/      → NavGraph, Screen routes
+│   ├── screens/         → All app screens
+│   └── theme/           → Colors, typography, theme
+├── viewmodel/           → ExpenseViewModel
+├── widget/              → Home screen widget
+├── worker/              → Background workers (budget alert, daily reminder)
+├── ExpenseTrackerApp.kt → Application class
+└── MainActivity.kt      → Entry point
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. SMS PROCESSING FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+How a bank SMS becomes a tracked expense:
+
+[Bank SMS arrives]
+       ↓
+[SmsReceiver (BroadcastReceiver)]
+       ↓ Triggered by android.provider.Telephony.SMS_RECEIVED
+       ↓
+[SmsParser.isTransactionalSms()]
+       ↓ Checks:
+       ↓   1. Is sender a known bank? (AXISBK, HDFCBK, etc.)
+       ↓   2. Does body contain amount? (Rs./INR/₹ + number)
+       ↓   3. Does body contain transaction keyword? (debited/credited/paid)
+       ↓   4. Is it NOT excluded? (not OTP, not failed, not reminder)
+       ↓
+[SmsParser.parse()]
+       ↓ Extracts:
+       ↓   - Amount (regex patterns for Rs.500, INR 1,200, ₹5000)
+       ↓   - Transaction type (DEBIT vs CREDIT)
+       ↓   - Payment source (UPI/Credit Card/ECS/Net Banking)
+       ↓   - Merchant name (from Info: UPI/ref/Name/vpa pattern)
+       ↓   - Account info (last 4 digits)
+       ↓   - SMS hash (SHA-256 for dedup)
+       ↓
+[SmsParser.categorize()]
+       ↓ Priority order:
+       ↓   1. KnownMerchants database (500+ branded merchants)
+       ↓   2. Keyword matching in SMS body (food, transport, etc.)
+       ↓   3. Naming patterns (words like "mart", "pharmacy", "restaurant")
+       ↓
+[TransactionRepository.insert()]
+       ↓ Dedup check:
+       ↓   - Same amount + same type + within 2 min = skip
+       ↓   - Same amount + same type + same account + same day = skip
+       ↓ Learned category check:
+       ↓   - If user previously re-categorized this merchant, use learned category
+       ↓
+[Room Database] → Transaction stored locally
+       ↓
+[NotificationHelper] → Shows "₹500 spent at Swiggy • Food"
+       ↓
+[UI auto-updates] → Room Flow emits change → ViewModel → Compose recomposes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. BANK SMS FORMATS SUPPORTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Axis Bank:
+  "Rs.500.00 debited from a/c no. XX5449 on 15-Jul-26. Info: UPI/417812345678/Sri Hari Krishna ST/merchant@axl"
+  → Extracts: Amount=500, Merchant="Sri Hari Krishna ST", Source=UPI
+
+City Union Bank (CUB):
+  "Your a/c no. XXXXXXXX6952 is debited for Rs.150.00 on 20-07-2026 and credited to a/c no. XXXXXXXX0612 (UPI Ref no 656708634259)"
+  → Extracts: Amount=150, Type=DEBIT (based on "is debited" position)
+
+HDFC Bank:
+  "INR 1,200 spent on HDFC CC XX9876 at AMAZON on 15-Jul-26"
+  → Extracts: Amount=1200, Merchant="AMAZON", Source=CREDIT_CARD
+
+ECS/NACH:
+  "NACH debit towards TP ACH HDF for INR 6,000.00 with UMRN CITI0000001414032"
+  → Extracts: Amount=6000, Merchant="TP ACH HDF", Source=ECS_NACH
+
+Credit/Refund:
+  "Your a/c no. XX6952 is credited for Rs.998.00 and debited from a/c no. XX5512"
+  → Extracts: Amount=998, Type=CREDIT (based on "is credited" coming first)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. CATEGORIZATION ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Categories (16 total):
+  FOOD_DINING, GROCERIES, TRANSPORT, SHOPPING, BILLS_UTILITIES,
+  ENTERTAINMENT, HEALTH, EDUCATION, SAVINGS, TRANSFER,
+  ATM_WITHDRAWAL, EMI, SUBSCRIPTION, FUEL, TRAVEL, OTHER
+
+Priority of categorization:
+  1. User's learned mappings (MerchantCategoryMapping table)
+     → If user ever changed "Sri Hari Krishna ST" to Groceries, it remembers
+
+  2. KnownMerchants database (branded keywords)
+     → "swiggy" → FOOD, "amazon" → SHOPPING, "uber" → TRANSPORT
+     → 500+ known Indian merchants
+
+  3. SmsParser keyword matching (from SMS body)
+     → Contains "petrol"/"diesel" → FUEL
+     → Contains "emi"/"loan" → EMI
+
+  4. KnownMerchants naming patterns (regex)
+     → Ends with "mart"/"store"/"stores" → GROCERIES
+     → Contains "restaurant"/"cafe"/"bakery" → FOOD
+     → Contains "pharmacy"/"medical"/"hospital" → HEALTH
+
+  5. Default: OTHER
+
+Learning mechanism:
+  - User taps transaction → "Change category" → selects new category
+  - App saves (merchant_name → new_category) in merchant_category_mappings table
+  - Also updates ALL past transactions from same merchant
+  - All future transactions from that merchant auto-categorize correctly
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. DUPLICATE PREVENTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Why duplicates occur:
+  - Banks send multiple SMS for same transaction (debit alert + UPI confirmation)
+  - SMS scanned on app open + already inserted by BroadcastReceiver
+  - Same amount paid twice to different merchants on same day
+
+Dedup strategy:
+
+Layer 1: SMS Hash (unique index in DB)
+  - Each SMS gets a SHA-256 hash of (body + timestamp)
+  - If same exact SMS is processed again → OnConflictStrategy.IGNORE
+
+Layer 2: Within-batch dedup (during scan)
+  - Same amount + same type + within 2 minutes = duplicate
+  - Same amount + same type + same account + same day = duplicate
+
+Layer 3: Against DB (before insert)
+  - Same amount + same type + within 2 minutes of existing = skip
+  - Same amount + same type + same account + same day = skip
+
+Important: Type (DEBIT/CREDIT) is checked — so ₹500 refund + ₹500 spend on same day are NOT deduped.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. CREDIT vs DEBIT DETECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Logic (handles CUB/Axis format where both words appear):
+
+1. Check for "is credited" and "is debited" positions:
+   - Both present → whichever comes FIRST = your account's action
+   - Only "is debited" → DEBIT
+   - Only "is credited" → CREDIT
+
+2. Check "debited from/for/by" pattern → DEBIT
+
+3. Check "credited to/for/into" pattern:
+   - Only if it appears BEFORE any debit keyword → CREDIT
+   - (prevents "debited to X and credited to Y" false positive)
+
+4. Strong credit signals: "received", "refund", "cashback" → CREDIT
+
+5. Default: DEBIT
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. DATABASE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Table: transactions
+  id              LONG (auto-increment, primary key)
+  amount          DOUBLE
+  merchant        TEXT
+  category        TEXT (enum name)
+  type            TEXT ("DEBIT" or "CREDIT")
+  source          TEXT ("UPI", "CREDIT_CARD", etc.)
+  accountInfo     TEXT ("A/c **5449")
+  rawSms          TEXT (full SMS body for reference)
+  smsHash         TEXT (unique index, SHA-256)
+  timestamp       TEXT (ISO LocalDateTime)
+  isSelfTransfer  BOOLEAN (default false)
+  synced          BOOLEAN (default false)
+
+Table: merchant_category_mappings
+  merchant        TEXT (primary key, lowercase)
+  category        TEXT (enum name)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. CLOUD BACKUP & SYNC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Authentication: Google Sign-In → Firebase Auth
+Storage: Firestore
+
+Firestore structure:
+  users/{userId}/transactions/{smsHash} → transaction data
+  users/{userId}/merchant_mappings/{merchant} → category mapping
+
+Sync behavior:
+  - NOT auto-sync on every transaction (battery optimization)
+  - User taps "Backup Now" → uploads all transactions + mappings
+  - User taps "Restore" on new device → downloads everything
+  - Category changes sync merchant mappings immediately (small payload)
+
+Security:
+  - Firestore Rules: users can only access their own data
+  - App Check (Play Integrity): only official app can access API
+  - Data encrypted in transit (HTTPS/TLS)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. NOTIFICATIONS & BACKGROUND WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Real-time (SmsReceiver):
+  - Triggered by SMS_RECEIVED broadcast
+  - Parses transaction → inserts to DB → shows notification
+  - "₹500 spent at Swiggy • Food & Dining"
+  - For unknown merchants: "₹300 — What was this? Tap to categorize"
+
+Scheduled (WorkManager):
+  - DailyReminderWorker: 9 PM every day
+    → "You spent ₹2,450 today. Tap to review."
+  - BudgetAlertWorker: Every 6 hours
+    → Checks if any category hit 80% or 100% of budget
+    → "⚠️ Food & Dining: 80% used — ₹6,400 of ₹8,000"
+  - WeeklySummaryWorker: Every 7 days
+    → "Weekly Spend: ₹12,400. Top: Food (₹4,200)"
+
+Notification channels:
+  - transaction_alerts: New transaction notifications
+  - weekly_summary: Weekly/monthly summaries
+  - budget_alerts: Budget threshold warnings
+  - unknown_merchant: Categorization prompts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. SECURITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On-device:
+  - App Lock: 4-digit PIN + Biometric (fingerprint)
+  - PIN stored in SharedPreferences (device-private storage)
+  - Lock screen shown before any content if enabled
+
+Cloud:
+  - Google Sign-In (OAuth 2.0)
+  - Firebase Auth tokens (auto-refresh)
+  - Firestore Security Rules (user isolation)
+  - Firebase App Check (Play Integrity attestation)
+
+Data privacy:
+  - SMS parsing: 100% on-device, never uploaded
+  - Cloud backup: Only transaction metadata (amount, merchant, category, date)
+  - Raw SMS body: stored locally only, included in backup by user choice
+  - No analytics on financial data content
+  - Firebase Analytics: only tracks events (app_open, category_changed), not amounts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. BUDGET MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Storage: BudgetPreferences (SharedPreferences)
+  - totalMonthlyBudget: overall monthly limit
+  - budget_FOOD_DINING: per-category limit
+  - alert_80_FOOD_DINING_2026-07: has 80% alert fired this month?
+  - alert_100_FOOD_DINING_2026-07: has 100% alert fired this month?
+
+How alerts work:
+  - BudgetAlertWorker runs every 6 hours
+  - Queries current month's spending per category from Room
+  - Compares against set budget limits
+  - If ≥80% and not already alerted this month → notify
+  - If ≥100% and not already alerted this month → notify
+  - Resets each month (tracked by year-month key)
+
+Budget page always shows CURRENT MONTH (not affected by Dashboard period filter).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. AI / OFFLINE QUERY ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SmartQueryEngine (auto-selects best option):
+  - If Gemini Nano available (Pixel 8+, Samsung S24+) → uses on-device AI
+  - Otherwise → falls back to OfflineQueryEngine (pattern matching)
+
+OfflineQueryEngine handles:
+  "how much spent today/this week/this month?" → sums debits for period
+  "how much on food/groceries/transport?" → filters by category
+  "biggest expense?" → finds max amount transaction
+  "top merchants?" → groups by merchant, sorts by total
+  "daily average?" → total / days with transactions
+  "compare with last month?" → this month vs last month totals
+  "weekend spending?" → filters by day of week
+  "tips to save money?" → finds biggest category + gives advice
+
+SpendingPredictor:
+  - Daily average × days in month = projected month-end spend
+  - Compares against last month's total
+  - Per-category projections with trend (↑ up / ↓ down / → same)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. EXCLUDED MESSAGES (NOT TRACKED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The app ignores these SMS even from bank senders:
+
+- OTPs: "BEWARE", "DO NOT GIVE", "DO NOT SHARE", "OTP"
+- Failed: "has failed", "unsuccessful", "declined"
+- Reversals: "reversal failed", "will be reversed", "to be reversed"
+- Reminders: "reminder", "is due", "payment due", "due on [date]"
+- Payment requests: "please pay", "kindly pay", "amount due"
+- Overdue: "overdue", "outstanding", "minimum amount due"
+- Late fee warnings: "avoid late fee", "last date to pay"
+- Promotions: "promotional", "offer", "reward points", "pre-approved"
+- Loan offers: "loan offer", "credit limit increased"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14. APP LIFECYCLE / USER FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+First launch:
+  Splash (2.5s) → Onboarding (3 pages) → Google Sign-In prompt (skippable)
+  → SMS Permission request → Dashboard (empty state) → Auto-scan
+
+Subsequent launches:
+  Splash (2.5s) → App Lock (if enabled) → Dashboard
+  → Auto-scan new SMS (only since last timestamp) → Stats reload
+
+Real-time (app closed):
+  SMS arrives → SmsReceiver → Parse → Insert → Notification
+
+User actions:
+  - Change category → updates all same-merchant transactions + learns
+  - Rename merchant → updates display name
+  - Mark self-transfer → excluded from spend totals
+  - Delete → removed + undo available for 5 seconds
+  - Add manual → creates transaction with "Manual entry" tag
+  - Backup → uploads everything to Firestore
+  - Restore → downloads from Firestore, dedup-inserts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+15. BATTERY OPTIMIZATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- NO auto-sync to cloud on every transaction (manual backup only)
+- SMS scan uses timestamp tracking (only scans new messages, not 90 days)
+- repairTransactionTypes runs once per app version (not every launch)
+- WorkManager respects Doze mode and battery saver
+- BroadcastReceiver uses goAsync() with 10-second timeout
+- No polling or periodic network calls
+- Room Flows are lifecycle-aware (cancel when screen leaves)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+16. SUPPORTED BANKS (Sender IDs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HDFCBK, SBIINB, ICICIB, AXISBK, KOTAKB, PNBSMS,
+BOIIND, CANBNK, UNIONB, IABORC, YESBNK, INDUSB,
+FEDBNK, SCBANK, CITIBK, AMEXIN, HSBCIN, RBLBNK,
+IDFCFB, AUBANK, BARODQ, CENTBK, IDBI, MAHABK,
+JUPBNK, FIBNK, SLCBNK, PAYTMB
+
+Also matches: Any sender containing "BANK" in the name.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+17. FIREBASE SERVICES USED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+| Service         | Purpose                                    |
+|-----------------|-------------------------------------------|
+| Auth            | Google Sign-In for cloud backup           |
+| Firestore       | Cloud storage for transactions + mappings |
+| Crashlytics     | Automatic crash reporting                 |
+| Analytics       | Usage tracking (events, not amounts)      |
+| Remote Config   | Dynamic SMS parsing patterns (hot-fix)    |
+| App Check       | Play Integrity attestation (security)     |
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+18. KEY FILES REFERENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Core logic:
+  SmsParser.kt              → All SMS parsing + categorization
+  KnownMerchants.kt         → 500+ merchant keyword database
+  TransactionRepository.kt  → Dedup + DB operations + cloud sync
+  ExpenseViewModel.kt       → UI state management
+
+Data:
+  Transaction.kt            → Main data model
+  TransactionDao.kt         → Room queries
+  AppDatabase.kt            → Room database definition
+  UserPreferences.kt        → SharedPreferences wrapper
+
+UI:
+  MainActivity.kt           → App entry, nav setup, auth
+  DashboardScreen.kt        → Home with stats + pie chart
+  TransactionListScreen.kt  → Filtered list with search + swipe
+  BudgetScreen.kt           → Budget limits + progress bars
+  SettingsScreen.kt         → Account, backup, lock, config
+
+Background:
+  SmsReceiver.kt            → Real-time SMS processing
+  SmsScanner.kt             → Bulk SMS scan (on refresh)
+  BudgetAlertWorker.kt      → Budget threshold checks
+  DailyReminderWorker.kt    → 9 PM daily notification
+
+Security:
+  AppLockManager.kt         → PIN + biometric state
+  AuthManager.kt            → Google Sign-In + Firebase Auth
+  LockScreen.kt             → PIN entry UI
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+© 2026 LazySloth. All rights reserved.
+AutoExpense — Know where your money goes.

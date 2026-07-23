@@ -11,11 +11,13 @@ import com.expensetracker.data.local.BudgetPreferences
 import com.expensetracker.data.local.UserPreferences
 import com.expensetracker.notification.NotificationHelper
 import com.expensetracker.security.AppLockManager
+import com.expensetracker.tax.TaxCalculator
 import com.expensetracker.ui.screens.AddTransactionScreen
 import com.expensetracker.ui.screens.BudgetScreen
 import com.expensetracker.ui.screens.DashboardScreen
 import com.expensetracker.ui.screens.SettingsScreen
 import com.expensetracker.ui.screens.StatsScreen
+import com.expensetracker.ui.screens.TaxInsightsScreen
 import com.expensetracker.ui.screens.TransactionListScreen
 import com.expensetracker.viewmodel.ExpenseViewModel
 
@@ -26,6 +28,7 @@ sealed class Screen(val route: String) {
     data object Budget : Screen("budget")
     data object AddTransaction : Screen("add_transaction")
     data object Settings : Screen("settings")
+    data object Tax : Screen("tax")
 }
 
 @Composable
@@ -36,6 +39,7 @@ fun NavGraph(
     budgetPreferences: BudgetPreferences,
     notificationHelper: NotificationHelper,
     appLockManager: AppLockManager,
+    taxCalculator: TaxCalculator,
     onSignIn: (() -> Unit)? = null,
     onSignOut: (() -> Unit)? = null,
     signedInEmail: String? = null,
@@ -45,7 +49,7 @@ fun NavGraph(
 ) {
     NavHost(navController = navController, startDestination = Screen.Dashboard.route, modifier = modifier) {
         composable(Screen.Dashboard.route) {
-            DashboardScreen(viewModel = viewModel, navController = navController)
+            DashboardScreen(viewModel = viewModel, navController = navController, taxCalculator = taxCalculator)
         }
         composable(Screen.Transactions.route) {
             TransactionListScreen(viewModel = viewModel)
@@ -81,6 +85,9 @@ fun NavGraph(
                     navController.popBackStack()
                 }
             )
+        }
+        composable(Screen.Tax.route) {
+            TaxInsightsScreen(taxCalculator = taxCalculator, userPreferences = userPreferences)
         }
     }
 }

@@ -4,7 +4,7 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "com.expensetracker",
+  "applicationId": "com.lazysloth.autoexpense",
   "variantName": "release",
   "elements": [
     {

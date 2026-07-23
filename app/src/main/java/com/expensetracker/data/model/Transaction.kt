@@ -33,6 +33,7 @@ enum class TransactionCategory {
     ENTERTAINMENT,
     HEALTH,
     EDUCATION,
+    SALARY,
     SAVINGS,
     TRANSFER,
     ATM_WITHDRAWAL,

@@ -78,6 +78,9 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
     val scope = rememberCoroutineScope()
     var lastDeletedTransaction by remember { mutableStateOf<Transaction?>(null) }
 
+    // Category change confirmation
+    var pendingCategoryChange by remember { mutableStateOf<Pair<Transaction, TransactionCategory>?>(null) }
+
     val filteredByType = when (selectedFilter) {
         ViewFilter.DEBITS -> transactions.filter { it.type == TransactionType.DEBIT }
         ViewFilter.CREDITS -> transactions.filter { it.type == TransactionType.CREDIT }
@@ -261,7 +264,7 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                                 TransactionItem(
                                     transaction = transaction,
                                     onCategoryChange = { newCategory ->
-                                        viewModel.updateCategory(transaction, newCategory)
+                                        pendingCategoryChange = transaction to newCategory
                                     },
                                     onToggleSelfTransfer = {
                                         viewModel.toggleSelfTransfer(transaction)
@@ -293,6 +296,37 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
             }
         }
     }
+    }
+
+    // Category change confirmation dialog
+    if (pendingCategoryChange != null) {
+        val (txn, newCategory) = pendingCategoryChange!!
+
+        // Salary category — always "just this one" (same merchant can send salary + cashback)
+        if (newCategory == TransactionCategory.SALARY) {
+            viewModel.updateSingleTransaction(txn, newCategory)
+            pendingCategoryChange = null
+        } else {
+            AlertDialog(
+                onDismissRequest = { pendingCategoryChange = null },
+                title = { Text("Apply to all?") },
+                text = {
+                    Text("Apply \"${newCategory.displayName}\" to all ${if (txn.type == TransactionType.DEBIT) "debits" else "credits"} from \"${txn.merchant}\" (past & future)? Or just this one?")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.updateCategory(txn, newCategory)
+                        pendingCategoryChange = null
+                    }) { Text("All & Future") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        viewModel.updateSingleTransaction(txn, newCategory)
+                        pendingCategoryChange = null
+                    }) { Text("Just this one") }
+                }
+            )
+        }
     }
 
     if (editingTransaction != null) {

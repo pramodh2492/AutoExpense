@@ -66,20 +66,15 @@ class ExpenseViewModel @Inject constructor(
     private val _monthlyDailySpend = MutableStateFlow<Map<String, Double>>(emptyMap())
     val monthlyDailySpend: StateFlow<Map<String, Double>> = _monthlyDailySpend.asStateFlow()
 
+    private var monthlyStatsJob: Job? = null
+
     private fun loadMonthlyStats() {
-        viewModelScope.launch {
+        monthlyStatsJob?.cancel()
+        monthlyStatsJob = viewModelScope.launch {
             val now = LocalDateTime.now()
             val monthStart = now.with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay()
-            repository.getExpenseStats(monthStart, now).collect { stats ->
-                _monthlyStats.value = stats
-            }
-        }
-        viewModelScope.launch {
-            val now = LocalDateTime.now()
-            val monthStart = now.with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay()
-            repository.getDailySpend(monthStart, now).collect { daily ->
-                _monthlyDailySpend.value = daily
-            }
+            launch { repository.getExpenseStats(monthStart, now).collect { _monthlyStats.value = it } }
+            launch { repository.getDailySpend(monthStart, now).collect { _monthlyDailySpend.value = it } }
         }
     }
 
@@ -104,6 +99,7 @@ class ExpenseViewModel @Inject constructor(
 
     fun scanExistingSms() {
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
             try {
                 _isLoading.value = true
                 // Repair old transactions with wrong credit/debit type — only once per version
@@ -128,9 +124,13 @@ class ExpenseViewModel @Inject constructor(
             } catch (e: Exception) {
                 // Silently handle - permission not granted or other issue
             } finally {
+                // Ensure loading shows for at least 1 second so user sees feedback
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed < 1000) {
+                    kotlinx.coroutines.delay(1000 - elapsed)
+                }
                 _isLoading.value = false
-                // Force reload stats even if no new transactions were inserted
-                // (Room Flow won't re-emit if insertAll deduped everything)
+                // Cancel and restart all collectors with fresh time ranges
                 loadStats()
                 loadMonthlyStats()
             }
@@ -166,6 +166,12 @@ class ExpenseViewModel @Inject constructor(
                 newCategory = newCategory.name
             )
             repository.updateCategoryAndLearn(transaction, newCategory)
+        }
+    }
+
+    fun updateSingleTransaction(transaction: Transaction, newCategory: TransactionCategory) {
+        viewModelScope.launch {
+            repository.update(transaction.copy(category = newCategory))
         }
     }
 
@@ -233,6 +239,16 @@ class ExpenseViewModel @Inject constructor(
         }
     }
 
+    private val _customStartDate = MutableStateFlow<LocalDateTime?>(null)
+    private val _customEndDate = MutableStateFlow<LocalDateTime?>(null)
+
+    fun setCustomDateRange(start: LocalDateTime, end: LocalDateTime) {
+        _customStartDate.value = start
+        _customEndDate.value = end
+        _selectedPeriod.value = TimePeriod.CUSTOM
+        loadStats()
+    }
+
     private fun getDateRange(period: TimePeriod): Pair<LocalDateTime, LocalDateTime> {
         val now = LocalDateTime.now()
         val start = when (period) {
@@ -242,9 +258,11 @@ class ExpenseViewModel @Inject constructor(
             TimePeriod.LAST_MONTH -> now.minusMonths(1).with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay()
             TimePeriod.LAST_3_MONTHS -> now.minusMonths(3).toLocalDate().atStartOfDay()
             TimePeriod.THIS_YEAR -> now.with(TemporalAdjusters.firstDayOfYear()).toLocalDate().atStartOfDay()
+            TimePeriod.CUSTOM -> _customStartDate.value ?: now.minusMonths(1).toLocalDate().atStartOfDay()
         }
         val end = when (period) {
             TimePeriod.LAST_MONTH -> now.with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay()
+            TimePeriod.CUSTOM -> _customEndDate.value ?: now
             else -> now
         }
         return start to end
@@ -257,5 +275,6 @@ enum class TimePeriod(val label: String) {
     THIS_MONTH("This Month"),
     LAST_MONTH("Last Month"),
     LAST_3_MONTHS("3 Months"),
-    THIS_YEAR("This Year")
+    THIS_YEAR("This Year"),
+    CUSTOM("Custom")
 }
