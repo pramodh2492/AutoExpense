@@ -1,6 +1,11 @@
 package com.expensetracker.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -140,14 +145,14 @@ fun DashboardScreen(
 
         item {
             var showDatePicker by remember { mutableStateOf(false) }
-            var startDateText by remember { mutableStateOf("") }
-            var endDateText by remember { mutableStateOf("") }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TimePeriod.entries.take(4).forEach { period ->
+                TimePeriod.entries.filter { it != TimePeriod.CUSTOM }.forEach { period ->
                     FilterChip(
                         selected = selectedPeriod == period,
                         onClick = { viewModel.setPeriod(period) },
@@ -162,38 +167,24 @@ fun DashboardScreen(
             }
 
             if (showDatePicker) {
-                androidx.compose.material3.AlertDialog(
+                val dateRangePickerState = rememberDateRangePickerState()
+
+                DatePickerDialog(
                     onDismissRequest = { showDatePicker = false },
-                    title = { Text("Select date range") },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Start date (DD-MM-YYYY)", style = MaterialTheme.typography.bodySmall)
-                            androidx.compose.material3.OutlinedTextField(
-                                value = startDateText,
-                                onValueChange = { startDateText = it },
-                                placeholder = { Text("01-07-2026") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Text("End date (DD-MM-YYYY)", style = MaterialTheme.typography.bodySmall)
-                            androidx.compose.material3.OutlinedTextField(
-                                value = endDateText,
-                                onValueChange = { endDateText = it },
-                                placeholder = { Text("23-07-2026") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    },
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = {
-                            try {
-                                val formatter = java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")
-                                val start = java.time.LocalDate.parse(startDateText, formatter).atStartOfDay()
-                                val end = java.time.LocalDate.parse(endDateText, formatter).atTime(23, 59, 59)
+                            val startMillis = dateRangePickerState.selectedStartDateMillis
+                            val endMillis = dateRangePickerState.selectedEndDateMillis
+                            if (startMillis != null && endMillis != null) {
+                                val start = java.time.Instant.ofEpochMilli(startMillis)
+                                    .atZone(java.time.ZoneId.systemDefault())
+                                    .toLocalDate().atStartOfDay()
+                                val end = java.time.Instant.ofEpochMilli(endMillis)
+                                    .atZone(java.time.ZoneId.systemDefault())
+                                    .toLocalDate().atTime(23, 59, 59)
                                 viewModel.setCustomDateRange(start, end)
                                 showDatePicker = false
-                            } catch (_: Exception) { }
+                            }
                         }) { Text("Apply") }
                     },
                     dismissButton = {
@@ -201,7 +192,12 @@ fun DashboardScreen(
                             Text("Cancel")
                         }
                     }
-                )
+                ) {
+                    DateRangePicker(
+                        state = dateRangePickerState,
+                        modifier = Modifier.height(400.dp)
+                    )
+                }
             }
         }
 
