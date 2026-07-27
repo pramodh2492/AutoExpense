@@ -66,10 +66,14 @@ class TaxCalculator @Inject constructor(
 
         val transactions = transactionDao.getTransactionsInRange(fyStart, fyEnd)
 
-        // Calculate income: use transactions marked as SALARY category, or user-configured salary
+        // Calculate income: use transactions marked as SALARY category, or user-configured salary.
+        // Detected salary only covers the FY so far, so annualize it by months elapsed —
+        // otherwise (e.g. 3 months in) the income looks tiny and both regimes wrongly show ₹0.
         val salaryTransactions = transactions.filter { it.category == TransactionCategory.SALARY }
         val annualIncome = if (salaryTransactions.isNotEmpty()) {
-            salaryTransactions.sumOf { it.amount }
+            val detectedSoFar = salaryTransactions.sumOf { it.amount }
+            val monthsElapsed = monthsElapsedInFY(fyStart, now)
+            (detectedSoFar / monthsElapsed) * 12
         } else {
             userPreferences.monthlySalary * 12
         }
@@ -297,6 +301,50 @@ class TaxCalculator @Inject constructor(
         return tips
     }
 
+    // ---- Manual Tax Calculator (3-tab wizard) ----
+
+    /** Persisted input for the manual tax calculator. Returns null if never saved. */
+    fun getSavedCalculatorInput(): TaxCalculatorInput? {
+        val json = taxPrefs.getString("calculator_input", null) ?: return null
+        return try {
+            gson.fromJson(json, TaxCalculatorInput::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun saveCalculatorInput(input: TaxCalculatorInput) {
+        taxPrefs.edit().putString("calculator_input", gson.toJson(input)).apply()
+    }
+
+    /**
+     * Build an input for the calculator, prefilled from what we can detect via SMS.
+     * The user is always expected to review/edit these values before calculating.
+     * If a saved input exists, that takes precedence (user's own edits win).
+     */
+    suspend fun buildPrefilledInput(): TaxCalculatorInput {
+        getSavedCalculatorInput()?.let { return it }
+
+        val insights = try {
+            calculateTaxInsights()
+        } catch (e: Exception) {
+            null
+        }
+
+        return if (insights != null) {
+            TaxCalculatorInput(
+                salaryIncome = insights.annualIncome,
+                deduction80C = insights.section80C.utilized,
+                deduction80D = insights.section80D.utilized,
+                deduction80CCD1B = insights.section80CCD.utilized,
+                homeLoanInterestSelfOccupied = insights.section24B.utilized,
+                deductionOther = insights.section80E.utilized
+            )
+        } else {
+            TaxCalculatorInput(salaryIncome = userPreferences.monthlySalary * 12)
+        }
+    }
+
     fun getManualDeductions(): List<ManualDeduction> {
         val json = taxPrefs.getString("manual_deductions", null) ?: return emptyList()
         val type = object : TypeToken<List<ManualDeduction>>() {}.type
@@ -330,6 +378,13 @@ class TaxCalculator @Inject constructor(
         } else {
             "${now.year - 1}-${now.year % 100}"
         }
+    }
+
+    // Number of months of the current financial year that have elapsed (inclusive of the
+    // current month), clamped to 1..12 so we never divide by zero or over-annualize.
+    private fun monthsElapsedInFY(fyStart: LocalDateTime, now: LocalDateTime): Int {
+        val months = ((now.year - fyStart.year) * 12 + (now.monthValue - fyStart.monthValue)) + 1
+        return months.coerceIn(1, 12)
     }
 
     private fun getFYDates(now: LocalDateTime): Pair<LocalDateTime, LocalDateTime> {

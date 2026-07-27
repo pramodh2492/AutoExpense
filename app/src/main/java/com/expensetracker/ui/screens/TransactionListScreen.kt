@@ -2,6 +2,8 @@ package com.expensetracker.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,7 +64,8 @@ import java.util.Locale
 enum class ViewFilter(val label: String) {
     DEBITS("Debits"),
     CREDITS("Credits"),
-    ALL("All")
+    ALL("All"),
+    TO_CATEGORIZE("To categorize")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,6 +88,8 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
         ViewFilter.DEBITS -> transactions.filter { it.type == TransactionType.DEBIT }
         ViewFilter.CREDITS -> transactions.filter { it.type == TransactionType.CREDIT }
         ViewFilter.ALL -> transactions
+        // Untrained merchants land in OTHER — surface them so they're easy to categorize.
+        ViewFilter.TO_CATEGORIZE -> transactions.filter { it.category == TransactionCategory.OTHER }
     }
 
     // Apply search filter
@@ -119,24 +124,44 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
             .padding(scaffoldPadding)
             .padding(16.dp)
     ) {
-        Text(
-            text = "Transactions",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        // Title with the running count + total folded into the same row, so the
+        // summary isn't a separate stacked line eating vertical space.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                text = "Transactions",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "${filtered.size} • ${currencyFormat.format(totalAmount)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         // Filter chips
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            val toCategorizeCount = transactions.count { it.category == TransactionCategory.OTHER }
             ViewFilter.entries.forEach { filter ->
+                val label = if (filter == ViewFilter.TO_CATEGORIZE && toCategorizeCount > 0) {
+                    "${filter.label} ($toCategorizeCount)"
+                } else {
+                    filter.label
+                }
                 FilterChip(
                     selected = selectedFilter == filter,
                     onClick = { selectedFilter = filter },
-                    label = { Text(filter.label) }
+                    label = { Text(label) }
                 )
             }
         }
@@ -156,14 +181,6 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                 )
             },
             singleLine = true
-        )
-
-        // Summary
-        Text(
-            text = "${filtered.size} transactions • ${currencyFormat.format(totalAmount)}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
         )
 
         if (filtered.isEmpty()) {
@@ -197,6 +214,7 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                                 ViewFilter.DEBITS -> "No debits this period"
                                 ViewFilter.CREDITS -> "No credits this period"
                                 ViewFilter.ALL -> "No transactions this period"
+                                ViewFilter.TO_CATEGORIZE -> "Everything's categorized 🎉"
                             }
                         },
                         style = MaterialTheme.typography.bodyMedium,

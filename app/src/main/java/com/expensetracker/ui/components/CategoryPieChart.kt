@@ -4,9 +4,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,10 +71,14 @@ fun CategoryPieChart(
         }
 
         Column(
-            modifier = Modifier.padding(start = 16.dp),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            sortedData.take(5).forEachIndexed { index, (category, amount) ->
+            sortedData.forEachIndexed { index, (category, amount) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Canvas(modifier = Modifier.size(10.dp)) {
                         drawCircle(color = categoryColors[index % categoryColors.size])

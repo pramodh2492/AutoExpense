@@ -1,6 +1,7 @@
 package com.expensetracker.data.repository
 
 import com.expensetracker.data.local.MerchantCategoryDao
+import com.expensetracker.data.local.MerchantKey
 import com.expensetracker.data.local.TransactionDao
 import com.expensetracker.data.model.ExpenseStats
 import com.expensetracker.data.model.MerchantCategoryMapping
@@ -29,10 +30,11 @@ class TransactionRepository @Inject constructor(
         // Smart dedup: skip if same amount within 5-minute window already exists
         if (isDuplicateInDb(transaction)) return
 
-        // Check type-specific mapping first (e.g., "amazon|CREDIT" → Salary)
-        val typeKey = "${transaction.merchant.lowercase()}|${transaction.type.name}"
+        // Check type-specific mapping first (e.g., "amazon|CREDIT" → Salary).
+        // Keys are normalized (MerchantKey) so name variants of the same shop match.
+        val typeKey = MerchantKey.typeKey(transaction.merchant, transaction.type.name)
         val learnedByType = merchantCategoryDao.getCategoryForMerchant(typeKey)
-        val learnedPlain = merchantCategoryDao.getCategoryForMerchant(transaction.merchant.lowercase())
+        val learnedPlain = merchantCategoryDao.getCategoryForMerchant(MerchantKey.normalize(transaction.merchant))
         val learned = learnedByType ?: learnedPlain
 
         val final = if (learned != null) transaction.copy(category = learned) else transaction
@@ -49,9 +51,9 @@ class TransactionRepository @Inject constructor(
         val nonDuplicates = batchDeduped.filter { !isDuplicateInDb(it) }
 
         val updated = nonDuplicates.map { txn ->
-            // Check type-specific mapping first, then plain
-            val typeKey = "${txn.merchant.lowercase()}|${txn.type.name}"
-            val learned = mappings[typeKey] ?: mappings[txn.merchant.lowercase()]
+            // Check type-specific mapping first, then plain — both on normalized keys.
+            val typeKey = MerchantKey.typeKey(txn.merchant, txn.type.name)
+            val learned = mappings[typeKey] ?: mappings[MerchantKey.normalize(txn.merchant)]
             if (learned != null) txn.copy(category = learned) else txn
         }
         dao.insertAll(updated)
@@ -145,13 +147,21 @@ class TransactionRepository @Inject constructor(
     }
 
     suspend fun updateCategoryAndLearn(transaction: Transaction, newCategory: TransactionCategory) {
-        // Update transactions from this merchant WITH SAME TYPE only
-        // This prevents Amazon salary (CREDIT) from changing Amazon shopping (DEBIT)
-        dao.updateCategoryForMerchantAndType(transaction.merchant, transaction.type.name, newCategory)
+        // Retroactively recategorize every stored transaction whose merchant normalizes to the
+        // same key AND has the same type. Matching on the normalized key (not the exact string)
+        // means correcting "SWIGGY*ORDER1" also fixes "Swiggy Ltd", "swiggy", etc.
+        // Same-type only, so an Amazon salary (CREDIT) correction never touches Amazon shopping (DEBIT).
+        val normalized = MerchantKey.normalize(transaction.merchant)
+        val affected = dao.getAllTransactions().first().filter {
+            it.type == transaction.type && MerchantKey.normalize(it.merchant) == normalized
+        }
+        for (txn in affected) {
+            if (txn.category != newCategory) dao.update(txn.copy(category = newCategory))
+        }
 
-        // Save ONLY type-specific mapping: "merchant|TYPE" → category
-        // Do NOT save plain merchant mapping — it would override the other type
-        val mappingKey = "${transaction.merchant.lowercase()}|${transaction.type.name}"
+        // Save ONLY type-specific mapping: "normalizedMerchant|TYPE" → category.
+        // Do NOT save a plain merchant mapping — it would override the other type.
+        val mappingKey = MerchantKey.typeKey(transaction.merchant, transaction.type.name)
         merchantCategoryDao.save(
             MerchantCategoryMapping(
                 merchant = mappingKey,

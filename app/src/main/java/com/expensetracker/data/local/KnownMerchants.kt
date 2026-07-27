@@ -6,8 +6,8 @@ object KnownMerchants {
 
     // Returns category if merchant name or SMS body matches a known pattern, null otherwise
     fun categorize(merchant: String, smsBody: String = ""): TransactionCategory? {
-        val lower = merchant.lowercase().trim()
-        val bodyLower = smsBody.lowercase().trim()
+        val lower = normalizeForMatch(merchant)
+        val bodyLower = normalizeForMatch(smsBody)
 
         // Check exact/partial matches against known databases using merchant name
         for ((keywords, category) in merchantDatabase) {
@@ -34,6 +34,18 @@ object KnownMerchants {
         }
 
         return null
+    }
+
+    // Normalize a string for keyword matching. Crucially, "&" and standalone "n"
+    // are treated as "and" so "Nuts & Spices" / "Nuts N Spices" match the same
+    // "nuts and spice" keyword. Also collapses whitespace and lowercases.
+    private fun normalizeForMatch(text: String): String {
+        return text
+            .lowercase()
+            .replace("&", " and ")
+            .replace(Regex("""\bn\b"""), "and")     // "nuts n spices" -> "nuts and spices"
+            .replace(Regex("""\s+"""), " ")
+            .trim()
     }
 
     // Grocery stores — chains, local Chennai stores, patterns

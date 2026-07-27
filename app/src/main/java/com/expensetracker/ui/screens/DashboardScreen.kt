@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
@@ -244,40 +245,8 @@ fun DashboardScreen(
 
         // Only show stats and transactions when we have data
         if (transactions.isNotEmpty()) {
-            // Gradient stat cards
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    GradientStatCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Spent",
-                        amount = currencyFormat.format(stats.totalSpent),
-                        gradientColors = listOf(Color(0xFFFF5252), Color(0xFFFF1744))
-                    )
-                    GradientStatCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Income",
-                        amount = currencyFormat.format(stats.totalIncome),
-                        gradientColors = listOf(Color(0xFF4CAF50), Color(0xFF00C853))
-                    )
-                }
-            }
-
-            // Savings card
-            if (stats.totalSavings > 0) {
-                item {
-                    GradientStatCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        title = "Savings & Investments",
-                        amount = currencyFormat.format(stats.totalSavings),
-                        gradientColors = listOf(Color(0xFF26A69A), Color(0xFF00897B))
-                    )
-                }
-            }
-
-            // Balance card
+            // Hero balance card + compact stat tiles — one clear focal point,
+            // supporting numbers grouped beneath it instead of stacked full-width blocks.
             item {
                 val balance = stats.totalIncome - stats.totalSpent - stats.totalSavings
                 GradientStatCard(
@@ -287,8 +256,40 @@ fun DashboardScreen(
                     gradientColors = if (balance >= 0)
                         listOf(Color(0xFF7C4DFF), Color(0xFF536DFE))
                     else
-                        listOf(Color(0xFFFF6F00), Color(0xFFFF3D00))
+                        listOf(Color(0xFFFF6F00), Color(0xFFFF3D00)),
+                    hero = true
                 )
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    CompactStatTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Spent",
+                        amount = currencyFormat.format(stats.totalSpent),
+                        accent = Color(0xFFFF5252),
+                        icon = Icons.Default.TrendingDown
+                    )
+                    CompactStatTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Income",
+                        amount = currencyFormat.format(stats.totalIncome),
+                        accent = Color(0xFF4CAF50),
+                        icon = Icons.Default.TrendingUp
+                    )
+                    if (stats.totalSavings > 0) {
+                        CompactStatTile(
+                            modifier = Modifier.weight(1f),
+                            title = "Saved",
+                            amount = currencyFormat.format(stats.totalSavings),
+                            accent = Color(0xFF26A69A),
+                            icon = Icons.Default.AccountBalanceWallet
+                        )
+                    }
+                }
             }
 
             if (stats.categoryBreakdown.isNotEmpty()) {
@@ -349,26 +350,66 @@ fun GradientStatCard(
     modifier: Modifier = Modifier,
     title: String,
     amount: String,
-    gradientColors: List<Color>
+    gradientColors: List<Color>,
+    hero: Boolean = false
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(Brush.linearGradient(gradientColors))
-            .padding(20.dp)
+            .padding(if (hero) 24.dp else 20.dp)
     ) {
         Column {
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
-                color = Color.White.copy(alpha = 0.8f)
+                color = Color.White.copy(alpha = 0.85f)
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(if (hero) 8.dp else 4.dp))
             Text(
                 text = amount,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontSize = if (hero) 34.sp else 22.sp
+                ),
                 fontWeight = FontWeight.Bold,
                 color = Color.White
+            )
+        }
+    }
+}
+
+/** Small, low-noise tile for supporting numbers under the hero balance card. */
+@Composable
+fun CompactStatTile(
+    modifier: Modifier = Modifier,
+    title: String,
+    amount: String,
+    accent: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    Card(
+        modifier = modifier,
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = amount,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
             )
         }
     }

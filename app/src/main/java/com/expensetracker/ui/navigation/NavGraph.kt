@@ -17,7 +17,7 @@ import com.expensetracker.ui.screens.BudgetScreen
 import com.expensetracker.ui.screens.DashboardScreen
 import com.expensetracker.ui.screens.SettingsScreen
 import com.expensetracker.ui.screens.StatsScreen
-import com.expensetracker.ui.screens.TaxInsightsScreen
+import com.expensetracker.ui.screens.TaxCalculatorScreen
 import com.expensetracker.ui.screens.TransactionListScreen
 import com.expensetracker.viewmodel.ExpenseViewModel
 
@@ -87,7 +87,7 @@ fun NavGraph(
             )
         }
         composable(Screen.Tax.route) {
-            TaxInsightsScreen(taxCalculator = taxCalculator, userPreferences = userPreferences)
+            TaxCalculatorScreen(taxCalculator = taxCalculator)
         }
     }
 }
