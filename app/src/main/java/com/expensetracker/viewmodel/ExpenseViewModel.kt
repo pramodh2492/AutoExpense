@@ -117,6 +117,9 @@ class ExpenseViewModel @Inject constructor(
                     autoDetectSalaryAccount(scanResult.transactions)
                     analyticsHelper.logSmsScanned(scanResult.transactions.size)
                 }
+                // Re-run categorization over old rows so keyword-DB improvements
+                // (e.g. "nut n spice" -> Groceries) reach transactions saved earlier.
+                repository.recategorizeUncategorized()
                 // Save the latest SMS timestamp for next scan
                 if (scanResult.maxTimestamp > userPreferences.lastSmsTimestamp) {
                     userPreferences.lastSmsTimestamp = scanResult.maxTimestamp

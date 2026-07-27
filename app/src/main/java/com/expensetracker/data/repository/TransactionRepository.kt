@@ -136,6 +136,34 @@ class TransactionRepository @Inject constructor(
         dao.deleteById(transaction.id)
     }
 
+    /**
+     * Re-run the known-merchants categorizer over already-stored transactions.
+     * Categories are only computed once at insert time, so improvements to the keyword
+     * DB (e.g. "nut n spice" -> Groceries) never reach old rows without this pass.
+     *
+     * Only touches rows still sitting in OTHER, so it never overrides a category the
+     * user set manually or one that was already detected correctly.
+     * Returns the number of transactions re-categorized.
+     */
+    suspend fun recategorizeUncategorized(): Int {
+        val all = dao.getAllTransactions().first()
+        var updated = 0
+        for (txn in all) {
+            if (txn.category != TransactionCategory.OTHER) continue
+            // Prefer a learned mapping for this merchant; fall back to the keyword DB.
+            val learned = merchantCategoryDao.getCategoryForMerchant(
+                MerchantKey.typeKey(txn.merchant, txn.type.name)
+            ) ?: merchantCategoryDao.getCategoryForMerchant(MerchantKey.normalize(txn.merchant))
+            val newCategory = learned
+                ?: com.expensetracker.data.local.KnownMerchants.categorize(txn.merchant, txn.rawSms)
+            if (newCategory != null && newCategory != TransactionCategory.OTHER) {
+                dao.update(txn.copy(category = newCategory))
+                updated++
+            }
+        }
+        return updated
+    }
+
     suspend fun repairTransactionTypes(parser: com.expensetracker.sms.SmsParser) {
         val smsTransactions = dao.getAllSmsTransactions()
         for (txn in smsTransactions) {
