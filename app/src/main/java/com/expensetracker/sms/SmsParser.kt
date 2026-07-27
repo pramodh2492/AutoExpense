@@ -167,6 +167,16 @@ class SmsParser @Inject constructor(
         Regex("""loan\s+offer""", RegexOption.IGNORE_CASE),
         Regex("""credit\s+limit\s+(?:increased|enhanced)""", RegexOption.IGNORE_CASE),
 
+        // Advertisements / marketing (real-estate, sales pitches) — never real transactions.
+        // "Price starts Rs.X /EMI onwards", "Why pay rent", "T&C apply", "call ... to book"
+        Regex("""\bt&c\s+appl(?:y|ies)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:price|emi|rent|starting)\s+starts?\b""", RegexOption.IGNORE_CASE),
+        Regex("""\bonwards\b""", RegexOption.IGNORE_CASE),
+        Regex("""why\s+pay\s+rent""", RegexOption.IGNORE_CASE),
+        Regex("""\b\d+\s*bhk\b""", RegexOption.IGNORE_CASE),
+        Regex("""ready[- ]to[- ]occupy""", RegexOption.IGNORE_CASE),
+        Regex("""(?:book|call)\s+now""", RegexOption.IGNORE_CASE),
+
         // Wallet/app credits (not real bank credits)
         Regex("""(?:wallet|account)\s+(?:has been\s+)?credited.*(?:use|shop|valid|expir)""", RegexOption.IGNORE_CASE),
         Regex("""(?:cashback|reward|bonus|coupon|coins?)\s+(?:of\s+)?(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE),
@@ -182,6 +192,12 @@ class SmsParser @Inject constructor(
     )
 
     fun isTransactionalSms(sender: String, body: String): Boolean {
+        // TRAI DLT headers end with a category code: -P (Promotional), -T (Transactional),
+        // -S (Service), -G (Government). Real bank debit/credit alerts are never Promotional.
+        // Check the ORIGINAL sender (with dashes) before we strip them below.
+        // e.g. "CP-RDBEST-P" -> promotional real-estate ad, must be rejected.
+        if (Regex("""-P$""", RegexOption.IGNORE_CASE).containsMatchIn(sender.trim())) return false
+
         val senderUpper = sender.uppercase().replace(Regex("[^A-Z0-9]"), "")
 
         // Exclude known non-bank senders (shopping apps, wallets)
