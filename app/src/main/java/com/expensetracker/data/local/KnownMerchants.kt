@@ -51,10 +51,15 @@ object KnownMerchants {
     // Grocery stores — chains, local Chennai stores, patterns
     private val groceryKeywords = listOf(
         // National chains
-        "bigbasket", "blinkit", "zepto", "jiomart", "grofers", "dunzo daily",
-        "dmart", "d-mart", "reliance fresh", "reliance smart", "more megastore",
+        "bigbasket", "big basket", "blinkit", "zepto", "jiomart", "jio mart", "grofers", "dunzo daily",
+        "dmart", "d-mart", "d mart", "avenue supermart", "reliance fresh", "reliance smart", "more megastore",
         "more supermarket", "spencer", "star bazaar", "hypercity", "easyday",
         "nature basket", "godrej nature", "nilgiris", "heritage fresh",
+        "swiggy instamart", "instamart", "bbnow", "bb now", "country delight",
+        "milkbasket", "milk basket", "otipy", "fraazo", "supr daily", "suprdaily",
+        "licious grocery", "vijetha", "ratnadeep", "metro cash", "metro wholesale",
+        "smart bazaar", "vishal mega mart", "vishal megamart", "big bazaar",
+        "apna bazaar", "sabziwala", "freshtohome", "fresh to home", "waycool",
 
         // Chennai specific grocery/provision stores
         "sri hari krishna", "grace mart", "nut and spice", "nuts and spice", "nuts n spices",
@@ -86,12 +91,21 @@ object KnownMerchants {
     // Restaurants, food, cafes, bakeries
     private val foodKeywords = listOf(
         // National chains
-        "swiggy", "zomato", "dominos", "pizza hut", "mcdonalds", "kfc",
+        "swiggy", "zomato", "dominos", "domino", "pizza hut", "mcdonalds", "mcdonald", "kfc",
         "burger king", "subway", "starbucks", "cafe coffee day", "ccd",
         "barista", "dunkin", "baskin robbins", "naturals ice cream",
         "haldiram", "barbeque nation", "absolute barbecue", "ab's",
         "paradise biryani", "behrouz", "faasos", "eatfit", "box8",
-        "licious", "freshmenu", "rebel foods", "chai point",
+        "licious", "freshmenu", "rebel foods", "chai point", "chaayos",
+        "wow momo", "wow china", "goli vada pav", "smokin joes", "la pinoz",
+        "third wave coffee", "blue tokai", "theobroma", "wendys", "wendy",
+        "taco bell", "carls jr", "popeyes", "chai sutta bar", "mba chaiwala",
+        "eatsure", "curefit food", "keventers", "gelato", "belgian waffle",
+        "the belgian waffle", "kwality walls", "cornetto", "havmor",
+        "biggies burger", "burger singh", "nandos", "sbarro",
+        "cake zone", "monginis", "ribbons and balloons", "just bake",
+        "karachi bakery", "iyengar bakery", "bakingo", "fnp cakes",
+        "bikanervala", "bikaji", "wow kulfi", "frozen bottle", "bakery",
 
         // Chennai specific restaurants & chains
         "mangifera", "ekayars", "sri sai dosa",
@@ -132,30 +146,43 @@ object KnownMerchants {
 
     // Transport
     private val transportKeywords = listOf(
-        "uber", "ola", "rapido", "namma yatri",
-        "metro", "chennai metro", "cmrl",
-        "irctc", "redbus", "abhibus",
-        "mtc", "bus pass", "parking",
-        "fastag", "toll", "toll plaza",
-        "bike taxi", "auto ", "autorickshaw",
-        "yulu", "bounce", "vogo",
+        "uber", "ola", "olacabs", "ola cabs", "rapido", "namma yatri", "nammayatri",
+        "metro", "chennai metro", "cmrl", "delhi metro", "dmrc", "bmrcl", "namma metro",
+        "irctc", "redbus", "red bus", "abhibus", "abhi bus",
+        "mtc", "bus pass", "parking", "blusmart", "blu smart",
+        "fastag", "fast tag", "toll", "toll plaza", "nhai", "paytm fastag",
+        "bike taxi", "auto ", "autorickshaw", "quick ride", "quickride",
+        "yulu", "bounce", "vogo", "meru", "savaari", "zoomcar", "zoom car",
+        "revv", "royal brothers", "freshbus", "fresh bus", "chalo", "tummoc",
+        "railway", "rail ticket", "train ticket", "tsrtc", "ksrtc", "apsrtc",
+        "msrtc", "gsrtc", "best bus", "dtc",
     )
 
     // Shopping
     private val shoppingKeywords = listOf(
-        "amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa",
+        "amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa", "nykaa fashion",
+        "tatacliq", "tata cliq", "tata neu", "snapdeal", "shopclues", "firstcry",
+        "first cry", "hopscotch", "limeroad", "lime road", "bewakoof", "urbanic",
         "croma", "reliance digital", "vijay sales", "poorvika",
         "sangeetha mobiles", "lot mobiles", "big c mobiles",
         "saravana selvarathinam", "grt", "tanishq", "kalyan jewellers",
-        "joyalukkas", "malabar gold", "lalitha jewellery",
+        "joyalukkas", "malabar gold", "lalitha jewellery", "bluestone", "blue stone",
+        "caratlane", "carat lane", "pc jeweller", "senco gold",
         "pothys", "rmkv", "nalli", "nalli silks", "kumaran silks",
         "chennai silks", "the chennai silks", "jayalakshmi silks",
-        "max fashion", "trends", "lifestyle", "westside", "zara",
-        "h&m", "uniqlo", "decathlon", "skechers", "nike", "adidas",
-        "lenskart", "titan eye", "coolwinks",
-        "ikea", "hometown", "urban ladder", "pepperfry",
-        "chroma", "croma", "bajaj electronics",
-        "reliance trends", "brand factory",
+        "max fashion", "trends", "lifestyle", "westside", "zara", "shoppers stop",
+        "h&m", "uniqlo", "decathlon", "skechers", "nike", "adidas", "puma", "reebok",
+        "levis", "levi", "us polo", "allen solly", "peter england", "van heusen",
+        "louis philippe", "jockey", "biba", "fabindia", "fab india", "w for woman",
+        "lenskart", "titan eye", "coolwinks", "specsmakers", "gkb optical",
+        "ikea", "hometown", "urban ladder", "pepperfry", "nilkamal", "wakefit",
+        "sleepwell", "duroflex", "the sleep company", "godrej interio",
+        "bajaj electronics", "boat lifestyle", "mi store", "xiaomi",
+        "oneplus", "samsung", "apple store", "imagine", "unicorn store",
+        "reliance trends", "brand factory", "pantaloons", "central mall",
+        "wildcraft", "american tourister", "vip bags", "safari bags",
+        "the body shop", "mac cosmetics", "sephora", "sugar cosmetics",
+        "mamaearth", "purplle", "wow skin", "minimalist",
     )
 
     // Bills & utilities
@@ -164,10 +191,11 @@ object KnownMerchants {
         "water", "metrowater", "cmwssb",
         "gas", "hp gas", "bharat gas", "indane",
         "piped gas", "adani gas", "mahanagar gas", "igs",
-        "broadband", "act fibernet", "airtel xstream",
-        "jio fiber", "jio", "airtel", "vi ", "bsnl", "vodafone",
+        "broadband", "act fibernet", "act fiber", "airtel xstream", "hathway",
+        "jio fiber", "jiofiber", "jio", "airtel", "vi ", "bsnl", "vodafone",
+        "excitel", "spectra", "you broadband", "railwire", "rail wire", "asianet",
         "wifi", "internet", "dth", "tata play", "tata sky",
-        "dish tv", "sun direct", "d2h",
+        "dish tv", "sun direct", "d2h", "videocon d2h",
         "rent", "house rent", "maintenance",
         "society", "apartment", "flat maintenance",
         "insurance", "insurance premium", "lic", "star health", "hdfc ergo",
@@ -181,42 +209,52 @@ object KnownMerchants {
     // Entertainment
     private val entertainmentKeywords = listOf(
         "netflix", "hotstar", "disney", "prime video", "amazon prime",
-        "spotify", "youtube premium", "apple music", "gaana",
-        "zee5", "sonyliv", "mxplayer", "jiocinema", "voot",
-        "pvr", "inox", "sathyam cinemas", "rohini theatre",
+        "spotify", "youtube premium", "apple music", "gaana", "wynk", "jiosaavn", "saavn",
+        "zee5", "sonyliv", "sony liv", "mxplayer", "mx player", "jiocinema", "jio cinema", "voot",
+        "aha video", "sun nxt", "sunnxt", "hoichoi", "erosnow", "eros now", "lionsgate play",
+        "pvr", "inox", "pvr inox", "cinepolis", "carnival cinemas", "miraj cinemas",
+        "sathyam cinemas", "rohini theatre", "ags cinemas", "escape cinemas",
         "devi theatre", "kamala theatre", "udhayam theatre",
-        "bookmyshow", "paytm insider", "ticketnew",
-        "wonderla", "vgp", "queensland", "kishkinta",
-        "gaming", "playstation", "xbox", "steam",
+        "bookmyshow", "book my show", "paytm insider", "ticketnew",
+        "wonderla", "vgp", "queensland", "kishkinta", "imagicaa", "essel world",
+        "gaming", "playstation", "xbox", "steam", "epic games", "nintendo",
+        "google play games", "garena", "dream11", "dream 11", "mpl", "rummy",
     )
 
     // Health
     private val healthKeywords = listOf(
-        "hospital", "apollo hospital", "fortis", "max health",
-        "kauvery", "miot", "vijaya hospital", "sims",
-        "pharmacy", "medplus", "apollo pharmacy", "netmeds",
-        "1mg", "pharmeasy", "frank ross", "wellness forever",
-        "practo", "doctor", "clinic", "dental",
-        "lab", "diagnostic", "thyrocare", "dr lal path",
-        "srl diagnostics", "metropolis",
-        "optical",
-        "gym", "cult.fit", "fitness",
+        "hospital", "apollo hospital", "fortis", "max health", "manipal",
+        "kauvery", "miot", "vijaya hospital", "sims", "aster", "narayana health",
+        "medanta", "columbia asia", "rainbow hospital", "cloudnine", "cloud nine",
+        "pharmacy", "medplus", "med plus", "apollo pharmacy", "netmeds",
+        "1mg", "tata 1mg", "pharmeasy", "pharm easy", "frank ross", "wellness forever",
+        "practo", "doctor", "clinic", "dental", "truemeds", "true meds", "medibuddy",
+        "lab", "diagnostic", "thyrocare", "dr lal path", "lal pathlabs", "healthians",
+        "srl diagnostics", "metropolis", "vijaya diagnostic", "agilus", "redcliffe labs",
+        "optical", "apollo 24", "apollo24", "wellness",
+        "gym", "cult.fit", "cultfit", "cure fit", "curefit", "fitness", "anytime fitness",
+        "gold's gym", "golds gym", "snap fitness", "healthifyme", "healthify",
     )
 
     // Education
     private val educationKeywords = listOf(
         "school", "college", "university", "institute",
-        "tuition", "coaching", "academy",
-        "udemy", "coursera", "unacademy", "byju", "upgrad",
-        "skillshare", "linkedin learning",
-        "books", "stationery", "sapna book", "crossword",
-        "landmark", "higginbothams",
+        "tuition", "coaching", "academy", "vidyalaya", "vidhyalaya",
+        "udemy", "coursera", "unacademy", "byju", "byjus", "upgrad", "up grad",
+        "skillshare", "linkedin learning", "vedantu", "toppr", "whitehat",
+        "physics wallah", "physicswallah", "aakash", "allen career",
+        "great learning", "simplilearn", "scaler", "newton school", "codingninjas",
+        "coding ninjas", "geeksforgeeks", "cuemath", "extramarks", "embibe",
+        "duolingo", "books", "stationery", "sapna book", "crossword",
+        "landmark", "higginbothams", "navneet", "classplus", "class plus",
     )
 
     // Savings & Investments
     private val savingsKeywords = listOf(
-        "groww", "zerodha", "kuvera", "coin by zerodha",
-        "smallcase", "etmoney", "paytm money", "angel one",
+        "groww", "zerodha", "kuvera", "coin by zerodha", "indmoney", "ind money",
+        "smallcase", "etmoney", "et money", "paytm money", "angel one", "angelone",
+        "dhan app", "fyers", "sharekhan", "iifl", "iifl securities", "jar app", "jarapp",
+        "wint wealth", "gripinvest", "grip invest", "bharat bond", "navi mutual",
         "upstox", "5paisa", "motilal oswal", "icicidirect",
         "sbi mutual fund", "hdfc mutual fund", "axis mutual fund",
         "nippon india", "icici prudential", "kotak mahindra mf",
@@ -228,30 +266,44 @@ object KnownMerchants {
         "investment", "stock", "share",
     )
 
+    // Subscriptions — recurring digital services & memberships not covered elsewhere
+    private val subscriptionKeywords = listOf(
+        "google one", "google storage", "icloud", "apple.com/bill", "apple services",
+        "microsoft 365", "office 365", "adobe", "canva", "notion", "dropbox",
+        "chatgpt", "openai", "github", "linkedin premium", "grammarly",
+        "amazon prime membership", "flipkart plus", "zomato gold", "swiggy one",
+        "zepto pass", "cult pass", "audible", "kindle unlimited", "scribd",
+    )
+
     // Fuel
     private val fuelKeywords = listOf(
         "petrol", "diesel", "fuel station",
         "hp pump", "hp petrol", "hindustan petroleum",
         "iocl", "indian oil", "bharat petroleum", "bpcl",
-        "shell", "nayara", "essar",
-        "ev charging", "ather", "charging station",
+        "shell", "nayara", "essar", "reliance petrol", "jio-bp", "jio bp",
+        "ev charging", "ather", "charging station", "statiq", "tata power ev",
+        "chargezone", "charge zone", "ather grid", "petrol pump", "filling station",
+        "hpcl", "ioc ", "reliance bp",
     )
 
     // Travel
     private val travelKeywords = listOf(
         "makemytrip", "goibibo", "cleartrip", "yatra",
         "easemytrip", "ixigo", "via.com",
-        "oyo", "treebo", "fabhotel", "airbnb",
-        "booking.com", "agoda", "trivago",
-        "indigo", "spicejet", "air india", "vistara",
-        "akasa", "flight", "airline",
-        "taj hotel", "itc hotel", "marriott", "hyatt",
+        "oyo", "treebo", "fabhotel", "fab hotel", "airbnb",
+        "booking.com", "agoda", "trivago", "hostelworld", "zostel",
+        "indigo", "spicejet", "spice jet", "air india", "vistara",
+        "akasa", "akasa air", "flight", "airline", "goair", "go first",
+        "taj hotel", "itc hotel", "marriott", "hyatt", "radisson", "lemon tree",
+        "the leela", "leela palace", "oberoi", "novotel", "ibis", "sarovar",
+        "ginger hotel", "sterling holiday", "club mahindra", "mahindra holidays",
     )
 
     // The main database: keywords → category
     // Order matters — first match wins. Travel before food so specific hotel brands
     // (Taj Hotel, Marriott) match before generic "hotel" in food keywords.
     private val merchantDatabase = listOf(
+        subscriptionKeywords to TransactionCategory.SUBSCRIPTION,
         groceryKeywords to TransactionCategory.GROCERIES,
         travelKeywords to TransactionCategory.TRAVEL,
         foodKeywords to TransactionCategory.FOOD_DINING,
