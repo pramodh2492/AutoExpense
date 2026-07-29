@@ -1,11 +1,13 @@
 package com.expensetracker.data.repository
 
+import com.expensetracker.data.local.KnownMerchants
 import com.expensetracker.data.local.MerchantCategoryDao
 import com.expensetracker.data.local.MerchantKey
 import com.expensetracker.data.local.TransactionDao
 import com.expensetracker.data.model.ExpenseStats
 import com.expensetracker.data.model.MerchantCategoryMapping
 import com.expensetracker.data.model.MerchantStat
+import com.expensetracker.data.model.PaymentSource
 import com.expensetracker.data.model.Transaction
 import com.expensetracker.data.model.TransactionCategory
 import com.expensetracker.data.model.TransactionType
@@ -27,36 +29,88 @@ class TransactionRepository @Inject constructor(
 ) {
 
     suspend fun insert(transaction: Transaction) {
-        // Smart dedup: skip if same amount within 5-minute window already exists
-        if (isDuplicateInDb(transaction)) return
-
         // Check type-specific mapping first (e.g., "amazon|CREDIT" → Salary).
         // Keys are normalized (MerchantKey) so name variants of the same shop match.
         val typeKey = MerchantKey.typeKey(transaction.merchant, transaction.type.name)
         val learnedByType = merchantCategoryDao.getCategoryForMerchant(typeKey)
         val learnedPlain = merchantCategoryDao.getCategoryForMerchant(MerchantKey.normalize(transaction.merchant))
         val learned = learnedByType ?: learnedPlain
-
         val final = if (learned != null) transaction.copy(category = learned) else transaction
+
+        // Smart dedup: if the same transaction is already stored, keep whichever SMS
+        // carries more information (e.g. "spent at SWIGGY via UPI" beats "Rs.200 debited").
+        val existingDup = findDuplicateInDb(final)
+        if (existingDup != null) {
+            if (informationScore(final) > informationScore(existingDup)) {
+                // Replace in place — preserve the stored row's id and any manual edits
+                // (a user-corrected category/merchant should never be lost to a re-scan).
+                dao.update(mergeRicher(existingDup, final))
+            }
+            return
+        }
         dao.insert(final)
+    }
+
+    /**
+     * How much useful information a transaction carries. Higher = keep this one when two
+     * SMS describe the same debit/credit. Concrete signals beat generic fallbacks.
+     */
+    private fun informationScore(t: Transaction): Int {
+        var score = 0
+        if (t.merchant.isNotBlank() && !t.merchant.equals("Unknown", ignoreCase = true)) score += 4
+        if (t.category != TransactionCategory.OTHER) score += 3
+        if (t.source != PaymentSource.UNKNOWN) score += 2
+        if (t.accountInfo.isNotBlank()) score += 2
+        // Tiebreaker: a longer body usually means more detail (payee, ref, etc.)
+        score += (t.rawSms.length / 40).coerceAtMost(3)
+        return score
+    }
+
+    /**
+     * Merge the richer SMS into the existing stored row, keeping the stored row's id so
+     * Room updates instead of inserting. The richer body/merchant/source/category win,
+     * but a stored non-OTHER category (likely a user correction) is preserved.
+     */
+    private fun mergeRicher(existing: Transaction, richer: Transaction): Transaction {
+        val keepCategory = if (existing.category != TransactionCategory.OTHER) existing.category
+        else richer.category
+        return richer.copy(
+            id = existing.id,
+            category = keepCategory,
+            isSelfTransfer = existing.isSelfTransfer || richer.isSelfTransfer,
+            // A split is a user action, never present on a freshly parsed SMS — always
+            // carry the stored split forward so a background re-scan can't erase it.
+            splitJson = existing.splitJson,
+            reimbursedAmount = existing.reimbursedAmount,
+            synced = false
+        )
     }
 
     suspend fun insertAll(transactions: List<Transaction>) {
         val mappings = merchantCategoryDao.getAll().associate { it.merchant to it.category }
 
-        // Step 1: Dedup within the batch itself (same amount within 5 min = keep first only)
+        // Step 1: Dedup within the batch itself — keeping the richer of same-scan duplicates.
         val batchDeduped = deduplicateBatch(transactions)
 
-        // Step 2: Dedup against existing DB records
-        val nonDuplicates = batchDeduped.filter { !isDuplicateInDb(it) }
-
-        val updated = nonDuplicates.map { txn ->
-            // Check type-specific mapping first, then plain — both on normalized keys.
+        // Step 2: Apply learned category mappings.
+        val withCategories = batchDeduped.map { txn ->
             val typeKey = MerchantKey.typeKey(txn.merchant, txn.type.name)
             val learned = mappings[typeKey] ?: mappings[MerchantKey.normalize(txn.merchant)]
             if (learned != null) txn.copy(category = learned) else txn
         }
-        dao.insertAll(updated)
+
+        // Step 3: Reconcile against existing DB records. A brand-new transaction is inserted;
+        // one that duplicates a stored row replaces it only if it carries more information.
+        val toInsert = mutableListOf<Transaction>()
+        for (txn in withCategories) {
+            val existingDup = findDuplicateInDb(txn)
+            if (existingDup == null) {
+                toInsert.add(txn)
+            } else if (informationScore(txn) > informationScore(existingDup)) {
+                dao.update(mergeRicher(existingDup, txn))
+            }
+        }
+        dao.insertAll(toInsert)
     }
 
     /**
@@ -70,66 +124,170 @@ class TransactionRepository @Inject constructor(
         val sorted = transactions.sortedBy { it.timestamp }
 
         for (txn in sorted) {
-            val isDupInResult = result.any { existing ->
-                if (existing.amount != txn.amount || existing.type != txn.type) return@any false
+            val dupIndex = result.indexOfFirst { existing ->
+                if (existing.amount != txn.amount || existing.type != txn.type) return@indexOfFirst false
 
                 val minutesApart = kotlin.math.abs(
                     java.time.Duration.between(existing.timestamp, txn.timestamp).toMinutes()
                 )
 
-                // Within 2 minutes = always duplicate
-                if (minutesApart <= 2) return@any true
+                // Within 2 minutes: same amount/type — but only a duplicate if the two SMS
+                // don't prove they're DIFFERENT payments (different ref or different merchant).
+                if (minutesApart <= 2) return@indexOfFirst sameTransactionEvent(existing, txn)
 
-                // Same account + same day = duplicate
+                // Same account + same day: still require they aren't clearly separate payments.
                 val sameAccount = existing.accountInfo.isNotBlank() &&
                         existing.accountInfo == txn.accountInfo
                 val sameDay = existing.timestamp.toLocalDate() == txn.timestamp.toLocalDate()
 
-                sameAccount && sameDay
+                sameAccount && sameDay && sameTransactionEvent(existing, txn)
             }
-            if (!isDupInResult) {
+            if (dupIndex < 0) {
                 result.add(txn)
+            } else if (informationScore(txn) > informationScore(result[dupIndex])) {
+                // Two SMS in the same scan describe one transaction — keep the richer one.
+                result[dupIndex] = mergeRicher(result[dupIndex], txn)
             }
         }
         return result
+    }
+
+    private val refRegex = Regex(
+        """(?:UPI|IMPS|NEFT|RTGS)?\s*Ref(?:erence)?\s*(?:no\.?|number|:|-)?\s*(\d{6,})""",
+        RegexOption.IGNORE_CASE
+    )
+
+    private fun extractRef(body: String): String =
+        refRegex.find(body)?.groupValues?.get(1).orEmpty()
+
+    private fun isRealMerchant(m: String): Boolean =
+        m.isNotBlank() && !m.equals("Unknown", ignoreCase = true) && !m.equals("Salary", ignoreCase = true)
+
+    /**
+     * Decide whether two same-amount, same-type transactions are really the SAME event
+     * (one payment that generated two SMS — e.g. bank + UPI app) versus two SEPARATE
+     * payments that happen to be the same amount close in time.
+     *
+     * They are DIFFERENT payments if either:
+     *  - both SMS carry a reference number and the numbers differ, or
+     *  - both name a real (known) merchant and the merchants differ.
+     * Otherwise we treat them as the same event and dedup.
+     */
+    private fun sameTransactionEvent(a: Transaction, b: Transaction): Boolean {
+        val refA = extractRef(a.rawSms)
+        val refB = extractRef(b.rawSms)
+        if (refA.isNotBlank() && refB.isNotBlank() && refA != refB) return false
+
+        if (isRealMerchant(a.merchant) && isRealMerchant(b.merchant) &&
+            !MerchantKey.normalize(a.merchant).equals(MerchantKey.normalize(b.merchant), ignoreCase = true)
+        ) return false
+
+        return true
     }
 
     /**
      * Check against DB:
      * - Same amount + within 2 min = duplicate
      * - Same amount + same account + same day = duplicate
+     * Both now require the two SMS to look like the SAME payment (see sameTransactionEvent) —
+     * two separate ₹200 payments close in time are kept as two transactions.
      */
-    private suspend fun isDuplicateInDb(transaction: Transaction): Boolean {
-        // Narrow: same amount + same type within 2 minutes
+    private suspend fun isDuplicateInDb(transaction: Transaction): Boolean =
+        findDuplicateInDb(transaction) != null
+
+    /**
+     * Like isDuplicateInDb but returns the matching stored row (or null) so the caller can
+     * compare information and keep the richer message. Narrow window wins over same-day.
+     * Candidates that are clearly a SEPARATE payment (different ref / different merchant)
+     * are filtered out, so genuine same-amount purchases within 2 min are NOT merged.
+     */
+    private suspend fun findDuplicateInDb(transaction: Transaction): Transaction? {
         val narrowStart = transaction.timestamp.minusMinutes(2)
         val narrowEnd = transaction.timestamp.plusMinutes(2)
-        val narrowCount = dao.countDuplicatesNarrow(
+        dao.findDuplicatesNarrow(
             amount = transaction.amount,
             type = transaction.type.name,
             windowStart = narrowStart,
             windowEnd = narrowEnd
-        )
-        if (narrowCount > 0) return true
+        ).firstOrNull { sameTransactionEvent(it, transaction) }?.let { return it }
 
-        // Same account + same type + same day
         if (transaction.accountInfo.isNotBlank()) {
             val dayStart = transaction.timestamp.toLocalDate().atStartOfDay()
             val dayEnd = dayStart.plusDays(1)
-            val accountCount = dao.countDuplicatesSameAccount(
+            dao.findDuplicatesSameAccount(
                 amount = transaction.amount,
                 type = transaction.type.name,
                 accountInfo = transaction.accountInfo,
                 windowStart = dayStart,
                 windowEnd = dayEnd
-            )
-            if (accountCount > 0) return true
+            ).firstOrNull { sameTransactionEvent(it, transaction) }?.let { return it }
         }
-
-        return false
+        return null
     }
 
     suspend fun update(transaction: Transaction) {
         dao.update(transaction)
+    }
+
+    /**
+     * Rename a transaction's merchant (used to fix rows that parsed as "Unknown").
+     * If the row is still uncategorized, re-run categorization against the new name —
+     * so renaming "Unknown" -> "Swiggy" both names it AND files it under Food. A learned
+     * mapping for the new name wins over the keyword DB; a category the user already set
+     * (non-OTHER) is never overridden.
+     */
+    suspend fun renameMerchant(transaction: Transaction, newName: String) {
+        val trimmed = newName.trim()
+        if (trimmed.isBlank()) return
+        var updated = transaction.copy(merchant = trimmed)
+        if (transaction.category == TransactionCategory.OTHER) {
+            val learned = merchantCategoryDao.getCategoryForMerchant(
+                MerchantKey.typeKey(trimmed, transaction.type.name)
+            ) ?: merchantCategoryDao.getCategoryForMerchant(MerchantKey.normalize(trimmed))
+            val resolved = learned ?: KnownMerchants.categorize(trimmed, trimmed)
+            if (resolved != null && resolved != TransactionCategory.OTHER) {
+                updated = updated.copy(category = resolved)
+            }
+        }
+        dao.update(updated.copy(synced = false))
+    }
+
+    private val gson = com.google.gson.Gson()
+    private val splitListType =
+        object : com.google.gson.reflect.TypeToken<List<com.expensetracker.data.model.SplitParticipant>>() {}.type
+
+    /** Deserialize a transaction's stored split, or empty list if it isn't split. */
+    fun parseSplit(transaction: Transaction): List<com.expensetracker.data.model.SplitParticipant> {
+        if (transaction.splitJson.isBlank()) return emptyList()
+        return try {
+            gson.fromJson(transaction.splitJson, splitListType) ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Save (or clear) a split on a transaction. `amount` is never touched — only the
+     * split ledger and the denormalized reimbursed total, so effective spend
+     * (amount - reimbursedAmount) reflects your own share plus any unpaid friend shares.
+     * An empty list clears the split entirely.
+     */
+    suspend fun saveSplit(
+        transaction: Transaction,
+        participants: List<com.expensetracker.data.model.SplitParticipant>
+    ) {
+        // Only friend shares that are still unpaid stay "out of pocket"; drop any share
+        // that exceeds the total defensively so effectiveAmount can't go negative.
+        val friendTotal = participants.sumOf { it.share }.coerceIn(0.0, transaction.amount)
+        val reimbursed = participants.filter { it.paid }.sumOf { it.share }.coerceIn(0.0, friendTotal)
+        val json = if (participants.isEmpty()) "" else gson.toJson(participants)
+        dao.update(
+            transaction.copy(
+                splitJson = json,
+                reimbursedAmount = reimbursed,
+                synced = false
+            )
+        )
     }
 
     suspend fun delete(transaction: Transaction) {
@@ -162,6 +320,60 @@ class TransactionRepository @Inject constructor(
             }
         }
         return updated
+    }
+
+    /**
+     * Enrich stored bank debits using merchant names harvested from loyalty/points SMS.
+     * A hint ("Nuts n Spices", Rs 1174, ~7:08 PM) is matched to a stored DEBIT of the same
+     * amount within a time window whose merchant is still "Unknown", and fills in the real
+     * merchant name + category. Never overrides a merchant/category the user already set.
+     * Returns the number of transactions enriched.
+     */
+    suspend fun applyMerchantHints(hints: List<com.expensetracker.sms.SmsParser.MerchantHint>): Int {
+        if (hints.isEmpty()) return 0
+        var enriched = 0
+        for (hint in hints) {
+            // Loyalty SMS often arrives minutes after the debit — use a generous ±60 min window.
+            val start = hint.timestamp.minusMinutes(60)
+            val end = hint.timestamp.plusMinutes(60)
+            val candidates = dao.findDuplicatesNarrow(
+                amount = hint.amount,
+                type = TransactionType.DEBIT.name,
+                windowStart = start,
+                windowEnd = end
+            )
+            // Only fill in rows that lack a real merchant name (don't clobber good data).
+            val target = candidates.firstOrNull {
+                it.merchant.isBlank() || it.merchant.equals("Unknown", ignoreCase = true)
+            } ?: continue
+
+            val category = if (target.category == TransactionCategory.OTHER) {
+                KnownMerchants.categorize(hint.merchant, hint.merchant) ?: target.category
+            } else target.category
+
+            dao.update(target.copy(merchant = hint.merchant, category = category, synced = false))
+            enriched++
+        }
+        return enriched
+    }
+
+    /**
+     * Delete already-stored SMS rows that older builds wrongly captured but the CURRENT
+     * rules reject — real-estate ads ("Price starts Rs.X ... EMI onwards"), loyalty/points
+     * SMS ("bill value ... points"), etc. Categorization improvements never remove these;
+     * only this pass does. Manual entries are left untouched (getAllSmsTransactions excludes them).
+     * Returns the number of rows purged.
+     */
+    suspend fun purgeNonTransactional(parser: com.expensetracker.sms.SmsParser): Int {
+        val smsTransactions = dao.getAllSmsTransactions()
+        var purged = 0
+        for (txn in smsTransactions) {
+            if (!parser.isStillTransactional(txn.rawSms)) {
+                dao.deleteById(txn.id)
+                purged++
+            }
+        }
+        return purged
     }
 
     suspend fun repairTransactionTypes(parser: com.expensetracker.sms.SmsParser) {
@@ -239,7 +451,8 @@ class TransactionRepository @Inject constructor(
             transactions
                 .filter { it.type == TransactionType.DEBIT }
                 .groupBy { it.timestamp.format(DateTimeFormatter.ISO_LOCAL_DATE) }
-                .mapValues { (_, txns) -> txns.sumOf { it.amount } }
+                // effectiveAmount subtracts money paid back, so split debits count only your share.
+                .mapValues { (_, txns) -> txns.sumOf { it.effectiveAmount } }
         }
     }
 

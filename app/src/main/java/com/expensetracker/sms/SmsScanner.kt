@@ -21,7 +21,10 @@ class SmsScanner @Inject constructor(
 
     data class ScanResult(
         val transactions: List<Transaction>,
-        val maxTimestamp: Long
+        val maxTimestamp: Long,
+        // Merchant names harvested from non-bank loyalty/points SMS (e.g. "Nuts n Spices"),
+        // used to enrich bank debits whose own merchant came out as "Unknown".
+        val merchantHints: List<SmsParser.MerchantHint> = emptyList()
     )
 
     fun scanExistingSms(sinceTimestamp: Long = 0L, daysBack: Int = 90): ScanResult {
@@ -32,6 +35,7 @@ class SmsScanner @Inject constructor(
         }
 
         val transactions = mutableListOf<Transaction>()
+        val merchantHints = mutableListOf<SmsParser.MerchantHint>()
         // Use sinceTimestamp if available (subsequent scans), else fall back to daysBack (first scan)
         val cutoff = if (sinceTimestamp > 0L) {
             sinceTimestamp
@@ -68,8 +72,15 @@ class SmsScanner @Inject constructor(
                         ZoneId.systemDefault()
                     )
 
-                    smsParser.parse(sender, body, timestamp)?.let { transaction ->
+                    val transaction = smsParser.parse(sender, body, timestamp)
+                    if (transaction != null) {
                         transactions.add(transaction)
+                    } else {
+                        // Not a bank transaction — but might be a loyalty/points SMS
+                        // that names the merchant for a debit from a different sender.
+                        smsParser.extractMerchantHint(sender, body, timestamp)?.let {
+                            merchantHints.add(it)
+                        }
                     }
                 }
             }
@@ -77,6 +88,6 @@ class SmsScanner @Inject constructor(
             return ScanResult(emptyList(), sinceTimestamp)
         }
 
-        return ScanResult(transactions, maxTimestampFound)
+        return ScanResult(transactions, maxTimestampFound, merchantHints)
     }
 }

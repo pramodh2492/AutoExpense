@@ -26,6 +26,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import androidx.room.Room
 import com.expensetracker.data.local.AppDatabase
+import com.expensetracker.data.local.MIGRATION_8_9
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.time.temporal.TemporalAdjusters
@@ -35,7 +36,7 @@ class ExpenseWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val db = Room.databaseBuilder(
             context, AppDatabase::class.java, "expense_tracker_db"
-        ).fallbackToDestructiveMigration().build()
+        ).addMigrations(MIGRATION_8_9).fallbackToDestructiveMigration().build()
 
         val dao = db.transactionDao()
         val now = LocalDateTime.now()

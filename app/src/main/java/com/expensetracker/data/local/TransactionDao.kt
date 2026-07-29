@@ -43,14 +43,16 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE category = :category ORDER BY timestamp DESC")
     fun getByCategory(category: TransactionCategory): Flow<List<Transaction>>
 
-    @Query("SELECT SUM(amount) FROM transactions WHERE type = 'DEBIT' AND isSelfTransfer = 0 AND category != 'SAVINGS' AND timestamp BETWEEN :start AND :end")
+    // Effective spend subtracts money friends have paid back (reimbursedAmount), so a
+    // split debit only counts your own share. reimbursedAmount is 0 for non-split rows.
+    @Query("SELECT SUM(amount - reimbursedAmount) FROM transactions WHERE type = 'DEBIT' AND isSelfTransfer = 0 AND category != 'SAVINGS' AND timestamp BETWEEN :start AND :end")
     fun getTotalSpent(start: LocalDateTime, end: LocalDateTime): Flow<Double?>
 
     @Query("SELECT SUM(amount) FROM transactions WHERE type = 'CREDIT' AND timestamp BETWEEN :start AND :end")
     fun getTotalIncome(start: LocalDateTime, end: LocalDateTime): Flow<Double?>
 
     @Query("""
-        SELECT category, SUM(amount) as total
+        SELECT category, SUM(amount - reimbursedAmount) as total
         FROM transactions
         WHERE type = 'DEBIT' AND isSelfTransfer = 0 AND timestamp BETWEEN :start AND :end
         GROUP BY category
@@ -59,7 +61,7 @@ interface TransactionDao {
     fun getCategoryBreakdown(start: LocalDateTime, end: LocalDateTime): Flow<List<CategoryTotal>>
 
     @Query("""
-        SELECT merchant, SUM(amount) as totalSpent, COUNT(*) as transactionCount
+        SELECT merchant, SUM(amount - reimbursedAmount) as totalSpent, COUNT(*) as transactionCount
         FROM transactions
         WHERE type = 'DEBIT' AND isSelfTransfer = 0 AND timestamp BETWEEN :start AND :end
         GROUP BY merchant
@@ -110,6 +112,41 @@ interface TransactionDao {
         windowStart: LocalDateTime,
         windowEnd: LocalDateTime
     ): Int
+
+    /**
+     * Fetch (not just count) the narrow-window duplicates so we can compare how much
+     * information each carries and keep the richer one.
+     */
+    @Query("""
+        SELECT * FROM transactions
+        WHERE amount = :amount
+        AND type = :type
+        AND timestamp BETWEEN :windowStart AND :windowEnd
+    """)
+    suspend fun findDuplicatesNarrow(
+        amount: Double,
+        type: String,
+        windowStart: LocalDateTime,
+        windowEnd: LocalDateTime
+    ): List<Transaction>
+
+    /**
+     * Fetch same-account/same-day duplicates for the same information comparison.
+     */
+    @Query("""
+        SELECT * FROM transactions
+        WHERE amount = :amount
+        AND type = :type
+        AND accountInfo = :accountInfo
+        AND timestamp BETWEEN :windowStart AND :windowEnd
+    """)
+    suspend fun findDuplicatesSameAccount(
+        amount: Double,
+        type: String,
+        accountInfo: String,
+        windowStart: LocalDateTime,
+        windowEnd: LocalDateTime
+    ): List<Transaction>
 
     /**
      * Get all transactions in a date range (suspend, not Flow) for tax calculations.

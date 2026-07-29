@@ -254,6 +254,11 @@ private fun AccountSetupPage(userPreferences: UserPreferences?) {
                 label = { Text("Last 4 digits") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
+                // Pin an explicit high-contrast text color so the typed digits are always
+                // visible regardless of the device's default field text color.
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
                 modifier = Modifier.weight(1f)
             )
             IconButton(
@@ -323,6 +328,9 @@ private fun AccountSetupPage(userPreferences: UserPreferences?) {
             label = { Text("Monthly salary (₹)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                color = MaterialTheme.colorScheme.onSurface
+            ),
             modifier = Modifier.fillMaxWidth()
         )
     }

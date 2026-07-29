@@ -21,7 +21,33 @@ data class Transaction(
     val smsHash: String = "",
     val timestamp: LocalDateTime,
     val isSelfTransfer: Boolean = false,
-    val synced: Boolean = false
+    val synced: Boolean = false,
+    // Split-with-friends. `amount` always stays the TRUE total paid (needed for dedup
+    // matching and richer-SMS merging); the split is stored alongside it, never by
+    // mutating amount.
+    // splitJson: serialized List<SplitParticipant> (your own share is implicit =
+    //   amount - sum(friend shares) and is never "owed"). "" = not split.
+    // reimbursedAmount: denormalized sum of friend shares already marked paid, so SQL
+    //   can compute effective spend (amount - reimbursedAmount) without parsing JSON.
+    val splitJson: String = "",
+    val reimbursedAmount: Double = 0.0
+) {
+    /** What this transaction actually cost you right now: total minus money paid back. */
+    val effectiveAmount: Double
+        get() = (amount - reimbursedAmount).coerceAtLeast(0.0)
+
+    val isSplit: Boolean
+        get() = splitJson.isNotBlank()
+}
+
+/**
+ * One friend on a split. `share` is what they owe you; `paid` flips when they settle up.
+ * Your own share is not stored here — it's the remainder of the total.
+ */
+data class SplitParticipant(
+    val name: String,
+    val share: Double,
+    val paid: Boolean = false
 )
 
 enum class TransactionCategory {

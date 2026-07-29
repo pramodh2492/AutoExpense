@@ -57,6 +57,7 @@ fun SettingsScreen(
     syncStatus: String = "",
     onRescan: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var salaryAccount by remember { mutableStateOf(userPreferences.salaryAccountLast4) }
     var newAccount by remember { mutableStateOf("") }
     var accounts by remember { mutableStateOf(userPreferences.userAccountNumbers) }
@@ -107,6 +108,9 @@ fun SettingsScreen(
                     label = { Text("Last 4 digits") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -125,6 +129,9 @@ fun SettingsScreen(
                     label = { Text("Minimum salary amount (₹)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -163,6 +170,9 @@ fun SettingsScreen(
                         label = { Text("Last 4 digits") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(
@@ -235,6 +245,9 @@ fun SettingsScreen(
                             label = { Text("Set 4-digit PIN") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                             singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -411,6 +424,24 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
+        // Version stamp — read from the actually-installed package so you can confirm
+        // at a glance whether the device is running the latest build.
+        val appVersion = remember {
+            try {
+                val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                @Suppress("DEPRECATION")
+                "Version ${pInfo.versionName} (${pInfo.versionCode})"
+            } catch (_: Exception) { "" }
+        }
+        if (appVersion.isNotBlank()) {
+            Text(
+                text = appVersion,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
         Text(
             text = "© 2026 LazySloth. All rights reserved.",
             style = MaterialTheme.typography.labelSmall,

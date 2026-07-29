@@ -1,0 +1,4 @@
+Bug fixes and stability improvements:
+- Fixed a rare crash on app startup.
+- Fixed a crash affecting the home-screen widget.
+- Fixed a crash during Google Sign-In.

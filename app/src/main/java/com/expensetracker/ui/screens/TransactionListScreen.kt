@@ -84,6 +84,9 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
     // Category change confirmation
     var pendingCategoryChange by remember { mutableStateOf<Pair<Transaction, TransactionCategory>?>(null) }
 
+    // Split-with-friends dialog target
+    var splittingTransaction by remember { mutableStateOf<Transaction?>(null) }
+
     val filteredByType = when (selectedFilter) {
         ViewFilter.DEBITS -> transactions.filter { it.type == TransactionType.DEBIT }
         ViewFilter.CREDITS -> transactions.filter { it.type == TransactionType.CREDIT }
@@ -108,7 +111,9 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
     val grouped = filtered.groupBy { it.timestamp.toLocalDate() }
         .toSortedMap(compareByDescending { it })
 
-    val totalAmount = filtered.sumOf { it.amount }
+    // Use effective (post-split) amounts so the header total matches the figures shown on
+    // each row — a split debit contributes only your share.
+    val totalAmount = filtered.sumOf { it.effectiveAmount }
 
     Scaffold(
         snackbarHost = {
@@ -227,7 +232,7 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 grouped.forEach { (date, dayTransactions) ->
                     item {
-                        DateHeader(date = date, total = dayTransactions.sumOf { it.amount })
+                        DateHeader(date = date, total = dayTransactions.sumOf { it.effectiveAmount })
                     }
                     items(dayTransactions, key = { it.id }) { transaction ->
                         val dismissState = rememberDismissState(
@@ -291,6 +296,11 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                                         editingTransaction = transaction
                                         renameText = transaction.merchant
                                     },
+                                    // Splitting only applies to money you paid out (debits).
+                                    onSplit = if (com.expensetracker.config.FeatureFlags.SPLIT_ENABLED &&
+                                        transaction.type == TransactionType.DEBIT) {
+                                        { splittingTransaction = transaction }
+                                    } else null,
                                     onDelete = {
                                         lastDeletedTransaction = transaction
                                         viewModel.deleteTransaction(transaction)
@@ -345,6 +355,23 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                 }
             )
         }
+    }
+
+    // Split-with-friends dialog
+    splittingTransaction?.let { txn ->
+        com.expensetracker.ui.components.SplitDialog(
+            transaction = txn,
+            existing = viewModel.splitParticipants(txn),
+            onDismiss = { splittingTransaction = null },
+            onSave = { participants ->
+                viewModel.saveSplit(txn, participants)
+                splittingTransaction = null
+            },
+            onClear = {
+                viewModel.saveSplit(txn, emptyList())
+                splittingTransaction = null
+            }
+        )
     }
 
     if (editingTransaction != null) {

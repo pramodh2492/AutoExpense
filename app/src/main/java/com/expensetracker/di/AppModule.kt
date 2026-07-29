@@ -3,6 +3,7 @@ package com.expensetracker.di
 import android.content.Context
 import androidx.room.Room
 import com.expensetracker.data.local.AppDatabase
+import com.expensetracker.data.local.MIGRATION_8_9
 import com.expensetracker.data.local.MerchantCategoryDao
 import com.expensetracker.data.local.TransactionDao
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -29,6 +30,7 @@ object AppModule {
             AppDatabase::class.java,
             "expense_tracker_db"
         )
+            .addMigrations(MIGRATION_8_9)
             .fallbackToDestructiveMigration()
             .build()
     }

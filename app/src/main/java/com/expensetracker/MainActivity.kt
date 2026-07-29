@@ -243,16 +243,18 @@ class MainActivity : FragmentActivity() {
                                     }
                                 }
                             )
-                            NavigationBarItem(
-                                icon = { Icon(Icons.Default.Analytics, contentDescription = "Tax") },
-                                label = { Text("Tax", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
-                                selected = currentRoute == Screen.Tax.route,
-                                onClick = {
-                                    navController.navigate(Screen.Tax.route) {
-                                        popUpTo(Screen.Dashboard.route)
+                            if (com.expensetracker.config.FeatureFlags.TAX_ENABLED) {
+                                NavigationBarItem(
+                                    icon = { Icon(Icons.Default.Analytics, contentDescription = "Tax") },
+                                    label = { Text("Tax", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                                    selected = currentRoute == Screen.Tax.route,
+                                    onClick = {
+                                        navController.navigate(Screen.Tax.route) {
+                                            popUpTo(Screen.Dashboard.route)
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                             NavigationBarItem(
                                 icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                                 label = { Text("Settings", style = MaterialTheme.typography.labelSmall, maxLines = 1) },

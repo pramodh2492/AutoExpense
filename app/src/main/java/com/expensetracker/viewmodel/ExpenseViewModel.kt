@@ -58,15 +58,21 @@ class ExpenseViewModel @Inject constructor(
     private val _insights = MutableStateFlow<List<Insight>>(emptyList())
     val insights: StateFlow<List<Insight>> = _insights.asStateFlow()
 
-    init {
-        loadStats()
-        loadMonthlyStats()
-    }
-
     private val _monthlyDailySpend = MutableStateFlow<Map<String, Double>>(emptyMap())
     val monthlyDailySpend: StateFlow<Map<String, Double>> = _monthlyDailySpend.asStateFlow()
 
     private var monthlyStatsJob: Job? = null
+
+    // NOTE: init must run AFTER every MutableStateFlow above is declared.
+    // viewModelScope uses Dispatchers.Main.immediate, so launching from init on
+    // the main thread executes the coroutine body synchronously up to the first
+    // suspension. If a repository flow emits without suspending, `_field.value = it`
+    // fires during construction — any backing field declared below init would still
+    // be null and crash with NPE (was the ExpenseViewModel.kt:77 crash).
+    init {
+        loadStats()
+        loadMonthlyStats()
+    }
 
     private fun loadMonthlyStats() {
         monthlyStatsJob?.cancel()
@@ -102,21 +108,40 @@ class ExpenseViewModel @Inject constructor(
             val startTime = System.currentTimeMillis()
             try {
                 _isLoading.value = true
-                // Repair old transactions with wrong credit/debit type — only once per version
-                val CURRENT_REPAIR_VERSION = 2
-                if (userPreferences.lastRepairVersion < CURRENT_REPAIR_VERSION) {
+                // One-time data repairs, bumped when parser rules change.
+                // v2: fix wrong credit/debit type. v3: purge rows older builds wrongly
+                // captured (ads, loyalty/points SMS) that current rules now reject.
+                // v4: full inbox re-scan so old terse rows get upgraded to the richer
+                //     duplicate SMS (insertAll now replaces a stored row when a more
+                //     informative SMS for the same transaction is re-parsed).
+                // v5: full re-scan so new merchant-extraction patterns (ICICI
+                //     "<date>; Name credited", Axis card "IST Name Avl", UPI P2M last
+                //     segment) back-fill merchants onto rows earlier builds saved as "Unknown".
+                val CURRENT_REPAIR_VERSION = 5
+                val needsFullRescan = userPreferences.lastRepairVersion < CURRENT_REPAIR_VERSION
+                if (needsFullRescan) {
                     repository.repairTransactionTypes(smsParser)
+                    repository.purgeNonTransactional(smsParser)
                     userPreferences.lastRepairVersion = CURRENT_REPAIR_VERSION
                 }
-                // Scan only new SMS since last scan (first scan uses 90-day fallback)
-                val scanResult = smsScanner.scanExistingSms(
-                    sinceTimestamp = userPreferences.lastSmsTimestamp
-                )
+                // Normally scan only new SMS since last scan. On a repair-triggered full
+                // rescan, re-read the ENTIRE inbox (not just the default 90-day window) so
+                // the richer-duplicate upgrade reaches ALL transactions saved by earlier
+                // builds, however old. ~10 years back effectively means "everything".
+                val scanResult = if (needsFullRescan) {
+                    smsScanner.scanExistingSms(sinceTimestamp = 0L, daysBack = 3650)
+                } else {
+                    smsScanner.scanExistingSms(sinceTimestamp = userPreferences.lastSmsTimestamp)
+                }
                 if (scanResult.transactions.isNotEmpty()) {
                     repository.insertAll(scanResult.transactions)
                     autoDetectSalaryAccount(scanResult.transactions)
                     analyticsHelper.logSmsScanned(scanResult.transactions.size)
                 }
+                // Fill in merchant names for bank debits that came out as "Unknown", using
+                // names harvested from loyalty SMS (e.g. CUB "Rs 1174 debited" + Nuts n Spices
+                // "bill value Rs 1174" -> merchant "Nuts n Spices", category Groceries).
+                repository.applyMerchantHints(scanResult.merchantHints)
                 // Re-run categorization over old rows so keyword-DB improvements
                 // (e.g. "nut n spice" -> Groceries) reach transactions saved earlier.
                 repository.recategorizeUncategorized()
@@ -184,10 +209,24 @@ class ExpenseViewModel @Inject constructor(
         }
     }
 
+    /** Current split participants for a transaction (empty if not split). */
+    fun splitParticipants(transaction: Transaction): List<com.expensetracker.data.model.SplitParticipant> =
+        repository.parseSplit(transaction)
+
+    /** Save or clear a split. Empty list removes the split; amount is never modified. */
+    fun saveSplit(
+        transaction: Transaction,
+        participants: List<com.expensetracker.data.model.SplitParticipant>
+    ) {
+        viewModelScope.launch {
+            repository.saveSplit(transaction, participants)
+        }
+    }
+
     fun renameMerchant(transaction: Transaction, newName: String) {
         if (newName.isBlank()) return
         viewModelScope.launch {
-            repository.update(transaction.copy(merchant = newName))
+            repository.renameMerchant(transaction, newName)
         }
     }
 

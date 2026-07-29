@@ -1,0 +1,5 @@
+New in this version:
+- Split expenses with friends — divide any bill and track who's paid you back. Fully offline.
+- Fewer "Unknown" transactions — better merchant detection for ICICI, Axis card, and UPI payments.
+- Rename an unknown merchant and it's automatically categorized.
+- Various improvements and a cleaner navigation bar.

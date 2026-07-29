@@ -21,3 +21,6 @@ local.properties
 
 # Firebase
 .firebase/
+
+# Signed release artifacts (rebuilt from source)
+/app/release

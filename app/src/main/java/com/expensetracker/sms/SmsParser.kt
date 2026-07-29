@@ -65,6 +65,24 @@ class SmsParser @Inject constructor(
         // AXIS BANK: "Info: ATM-WDL" or "Info: something" (generic Info catch-all)
         Regex("""Info[:\s]+(?:(?:UPI|NEFT|IMPS|RTGS|BIL|BPAY|NACH|ECS|ATM)[^A-Za-z]*)?([A-Za-z][A-Za-z0-9\s&.'-]{1,40}?)(?:\s*$|\s*/|\.)""", RegexOption.IGNORE_CASE),
 
+        // ICICI: "...debited for Rs 15.00 on 29-Jul-26; Kcs Coffee And credited."
+        // The merchant sits between the date-semicolon and the trailing credited/debited
+        // (that trailing verb describes the COUNTERPARTY's leg, not your account — the
+        // account direction is already decided earlier by determineTransactionType).
+        // Marker-based, not positional. Space class excludes newline so the name stops
+        // at end of line.
+        Regex(""";\s*([A-Za-z][A-Za-z0-9 &.'-]{1,40}?)\s+(?:credited|debited)\b""", RegexOption.IGNORE_CASE),
+
+        // AXIS card "Spent": "...12:30:45 IST EKAYARS CHE Avl Lmt INR 45000..."
+        // The merchant sits between the IST timestamp and the available-limit text.
+        // Marker-based (IST ... Avl), not line-position based.
+        Regex("""\bIST\s+([A-Za-z][A-Za-z0-9 &.'-]{1,40}?)\s+Avl\s+(?:Lmt|Limit|Bal)""", RegexOption.IGNORE_CASE),
+
+        // UPI P2M/P2A: the merchant is the final slash-segment, e.g.
+        // "UPI/P2M/512345/District Dining" or "UPI/P2M/District Dining" (3 or 4 segments),
+        // running to end of line. Space class excludes newline so it trims at the line break.
+        Regex("""UPI/(?:P2M|P2A)/(?:[^/\n]*/)?([A-Za-z][A-Za-z0-9 &.'-]{1,40})""", RegexOption.IGNORE_CASE),
+
         // "purchase @ Merchant Name" or "purchase at Merchant" (Apollo Pharmacy style)
         Regex("""purchase\s*[@at]+\s*([A-Za-z][A-Za-z0-9\s&.'-]{1,35}?)(?:\s*[.!]|\s+(?:Click|on|Ref|$))""", RegexOption.IGNORE_CASE),
 
@@ -222,6 +240,85 @@ class SmsParser @Inject constructor(
 
     fun reparseType(rawSms: String): TransactionType {
         return determineTransactionType(rawSms)
+    }
+
+    // UPI/IMPS/transaction reference number, e.g. "UPI Ref 123456", "Ref no. 987654321",
+    // "IMPS Ref: 12345". A unique ref number is the strongest proof that two same-amount
+    // SMS are DIFFERENT payments (or, if equal, the SAME one seen twice).
+    private val referencePatterns = listOf(
+        Regex("""(?:UPI|IMPS|NEFT|RTGS)?\s*Ref(?:erence)?\s*(?:no\.?|number|:|-)?\s*(\d{6,})""", RegexOption.IGNORE_CASE),
+        Regex("""\b(?:txn|transaction)\s*(?:id|no\.?)?\s*[:#-]?\s*([A-Za-z0-9]{6,})""", RegexOption.IGNORE_CASE),
+    )
+
+    /** Extract a transaction reference number from an SMS body, or "" if none present. */
+    fun extractReference(body: String): String {
+        for (pattern in referencePatterns) {
+            pattern.find(body)?.groupValues?.get(1)?.let { if (it.isNotBlank()) return it }
+        }
+        return ""
+    }
+
+    /**
+     * Re-check a already-stored SMS body against the CURRENT transactional rules.
+     * Used to purge rows that older builds wrongly captured (real-estate ads,
+     * loyalty/points SMS, etc.). The stored sender isn't kept on the row, so we
+     * apply only the body-based rules here (exclude patterns + amount + keyword).
+     * Returns false → the row should be deleted.
+     */
+    fun isStillTransactional(rawSms: String): Boolean {
+        // Same body-based gate as isTransactionalSms, minus the sender check.
+        if (excludePatterns.any { it.containsMatchIn(rawSms) }) return false
+        val hasAmount = amountPatterns.any { it.containsMatchIn(rawSms) }
+        val hasTransactionKeyword = (debitKeywords + creditKeywords).any {
+            rawSms.contains(it, ignoreCase = true)
+        }
+        return hasAmount && hasTransactionKeyword
+    }
+
+    /**
+     * A merchant name learned from a NON-bank SMS (e.g. a shop's loyalty/points message
+     * "Thanks for visiting Nuts n Spices. Your bill value is Rs 1174"). These aren't
+     * transactions themselves, but the matching bank debit (same amount, same time) usually
+     * has merchant = "Unknown". We use these hints to fill in that name + category.
+     */
+    data class MerchantHint(
+        val merchant: String,
+        val amount: Double,
+        val timestamp: LocalDateTime
+    )
+
+    // "Thanks for visiting X", "Welcome to X", "Thank you for shopping at X", etc.
+    private val hintMerchantExtractors = listOf(
+        Regex("""visiting\s+([A-Za-z][A-Za-z0-9\s&'.-]{1,40}?)\s*[.,!]""", RegexOption.IGNORE_CASE),
+        Regex("""shopping\s+at\s+([A-Za-z][A-Za-z0-9\s&'.-]{1,40}?)\s*[.,!]""", RegexOption.IGNORE_CASE),
+        Regex("""welcome\s+to\s+([A-Za-z][A-Za-z0-9\s&'.-]{1,40}?)\s*[.,!]""", RegexOption.IGNORE_CASE),
+        Regex("""thank\s+you\s+for\s+(?:visiting|shopping\s+(?:at|with))\s+([A-Za-z][A-Za-z0-9\s&'.-]{1,40}?)\s*[.,!]""", RegexOption.IGNORE_CASE),
+    )
+
+    // "bill value is Rs 1174", "bill amount Rs 1174", "total Rs 1174"
+    private val hintAmountExtractors = listOf(
+        Regex("""bill\s+(?:value|amount)\s+(?:is\s+)?(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:total|amount)\s+(?:of\s+)?(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)""", RegexOption.IGNORE_CASE),
+    )
+
+    /**
+     * If this SMS is NOT a bank transaction but carries a merchant name + bill amount
+     * (a loyalty/points message), return a hint the scanner can attach to the matching
+     * bank debit. Returns null for everything else.
+     */
+    fun extractMerchantHint(sender: String, body: String, receivedAt: LocalDateTime): MerchantHint? {
+        // Only for non-transactional SMS — a real bank SMS already carries its own info.
+        if (isTransactionalSms(sender, body)) return null
+
+        val merchant = hintMerchantExtractors.firstNotNullOfOrNull { rx ->
+            rx.find(body)?.groupValues?.get(1)?.trim()?.takeIf { it.length >= 2 }
+        } ?: return null
+
+        val amount = hintAmountExtractors.firstNotNullOfOrNull { rx ->
+            rx.find(body)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()?.takeIf { it > 0 }
+        } ?: return null
+
+        return MerchantHint(normalizeMerchant(merchant), amount, receivedAt)
     }
 
     fun parse(sender: String, body: String, receivedAt: LocalDateTime): Transaction? {

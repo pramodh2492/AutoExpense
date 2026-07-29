@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocalGroceryStore
 import androidx.compose.material.icons.filled.Movie
@@ -62,7 +63,8 @@ fun TransactionItem(
     onCategoryChange: ((TransactionCategory) -> Unit)? = null,
     onToggleSelfTransfer: (() -> Unit)? = null,
     onRename: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onSplit: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
@@ -141,8 +143,19 @@ fun TransactionItem(
             }
 
             Column(horizontalAlignment = Alignment.End) {
+                // When split, the bold figure is YOUR share (effective amount); the full
+                // total is shown struck-through above it so nothing looks lost.
+                val shownAmount = if (transaction.isSplit) transaction.effectiveAmount else transaction.amount
+                if (transaction.isSplit) {
+                    Text(
+                        text = currencyFormat.format(transaction.amount),
+                        style = MaterialTheme.typography.labelSmall,
+                        textDecoration = TextDecoration.LineThrough,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
-                    text = "${if (transaction.type == TransactionType.DEBIT) "-" else "+"}${currencyFormat.format(transaction.amount)}",
+                    text = "${if (transaction.type == TransactionType.DEBIT) "-" else "+"}${currencyFormat.format(shownAmount)}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = when {
@@ -152,9 +165,10 @@ fun TransactionItem(
                     }
                 )
                 Text(
-                    text = getSourceLabel(transaction.source),
+                    text = if (transaction.isSplit) "Split" else getSourceLabel(transaction.source),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (transaction.isSplit) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -183,6 +197,16 @@ fun TransactionItem(
                     text = { Text("Rename merchant") },
                     onClick = {
                         onRename()
+                        showMenu = false
+                    }
+                )
+            }
+            if (onSplit != null) {
+                DropdownMenuItem(
+                    text = { Text(if (transaction.isSplit) "Edit split" else "Split with friends") },
+                    leadingIcon = { Icon(Icons.Default.Groups, contentDescription = null) },
+                    onClick = {
+                        onSplit()
                         showMenu = false
                     }
                 )

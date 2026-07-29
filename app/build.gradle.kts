@@ -15,8 +15,8 @@ android {
         applicationId = "com.lazysloth.autoexpense"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 9
+        versionName = "1.0.8"
     }
 
     buildTypes {
@@ -89,8 +89,11 @@ dependencies {
     kapt("androidx.hilt:hilt-compiler:1.1.0")
 
     // Glance for home screen widget
-    implementation("androidx.glance:glance-appwidget:1.0.0")
-    implementation("androidx.glance:glance-material3:1.0.0")
+    // 1.1.0 fixes the "List adapter activity trampoline invoked without specifying
+    // target intent" crash (androidx.glance.appwidget.action.ActionTrampoline) that
+    // 1.0.0 threw on some launchers even for widgets without list actions.
+    implementation("androidx.glance:glance-appwidget:1.1.0")
+    implementation("androidx.glance:glance-material3:1.1.0")
 
     // Biometric authentication
     implementation("androidx.biometric:biometric:1.1.0")
@@ -111,7 +114,9 @@ dependencies {
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
 
     // Google Sign-In
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    // 21.2.0 fixes a NullPointerException in SignInHubActivity.onCreate
+    // (getClass() on a null reference) present in 20.7.0.
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 
 
 
