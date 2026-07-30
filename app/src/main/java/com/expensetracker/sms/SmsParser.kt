@@ -23,7 +23,9 @@ class SmsParser @Inject constructor(
     // "Dear Customer, Rs.2500 has been debited from your A/c XX4321 towards EMI"
 
     private val amountPatterns = listOf(
-        Regex("""(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)""", RegexOption.IGNORE_CASE),
+        // Allow a ":" separator after the currency token — some banks write "Rs:168.00"
+        // (e.g. Union Bank) rather than "Rs.168" or "Rs 168".
+        Regex("""(?:Rs\.?|INR|₹)[:\s]*([\d,]+\.?\d*)""", RegexOption.IGNORE_CASE),
         Regex("""([\d,]+\.?\d*)\s*(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE),
     )
 
@@ -47,6 +49,11 @@ class SmsParser @Inject constructor(
 
     // Ordered by specificity — first match wins
     private val merchantExtractors = listOf(
+        // UNION BANK etc.: "...Debited Rs:168 ... Fvg: nadhiyae Avl Bal..." — "Fvg"
+        // (Favouring) names the payee/beneficiary. Stop before the trailing "Avl Bal"
+        // balance clause or end of line/sentence.
+        Regex("""Fvg[:\s]+([A-Za-z][A-Za-z0-9\s&.'-]{1,40}?)(?:\s+Avl\b|\s+Bal\b|[.,]|\s*$)""", RegexOption.IGNORE_CASE),
+
         // AXIS BANK: "Info: UPI/refno/Payee Name/vpa@bank" — payee is 3rd slash-segment
         Regex("""Info[:\s]*UPI/[^/]+/([^/]+)/""", RegexOption.IGNORE_CASE),
 
@@ -143,14 +150,14 @@ class SmsParser @Inject constructor(
         Regex("""DO NOT SHARE""", RegexOption.IGNORE_CASE),
         Regex("""OTP|otp|One Time Password"""),
 
-        // Balance/passbook/statement messages (not transactions)
-        Regex("""(?:available|avl\.?|avail)\s*(?:bal|balance)""", RegexOption.IGNORE_CASE),
-        Regex("""balance\s*(?:is|:)\s*(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE),
+        // Passbook/statement messages (not transactions). NOTE: "available balance" /
+        // "avl bal" is deliberately NOT here — real debit/credit SMS routinely append the
+        // running balance ("...Debited Rs:168. Avl Bal Rs:1055"), so those live in
+        // [balanceOnlyPatterns] and only exclude when there's no action verb.
         Regex("""passbook""", RegexOption.IGNORE_CASE),
         Regex("""passbo""", RegexOption.IGNORE_CASE),
         Regex("""account\s+statement""", RegexOption.IGNORE_CASE),
         Regex("""mini\s*statement""", RegexOption.IGNORE_CASE),
-        Regex("""your\s+balance""", RegexOption.IGNORE_CASE),
         Regex("""contribution\s+of\s+Rs""", RegexOption.IGNORE_CASE),
         Regex("""(?:PF|EPF|provident\s+fund)\s+(?:balance|contribution)""", RegexOption.IGNORE_CASE),
 
@@ -161,6 +168,12 @@ class SmsParser @Inject constructor(
         Regex("""declined""", RegexOption.IGNORE_CASE),
         Regex("""reversal\s+(?:failed|unsuccessful)""", RegexOption.IGNORE_CASE),
         Regex("""(?:will be|to be)\s+reversed""", RegexOption.IGNORE_CASE),
+
+        // Future-tense actions — a scheduled/upcoming debit is NOT a transaction that has
+        // happened yet. "Rs 500 will be debited on 05-Aug", "your a/c shall be debited",
+        // "amount would be deducted". Only reject when the verb is clearly future.
+        Regex("""(?:will|shall|would|going to|to)\s+be\s+(?:debited|credited|deducted|charged)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:will|shall)\s+(?:be\s+)?(?:auto[- ]?)?(?:debited|deducted|charged)""", RegexOption.IGNORE_CASE),
 
         // Reminders and payment-due messages (NOT actual debits)
         Regex("""reminder""", RegexOption.IGNORE_CASE),
@@ -202,6 +215,16 @@ class SmsParser @Inject constructor(
         Regex("""(?:bewakoof|myntra|flipkart|amazon|meesho|ajio|nykaa).*(?:wallet|credit|cashback|reward)""", RegexOption.IGNORE_CASE),
     )
 
+    // Balance/enquiry phrases. A real debit/credit SMS often APPENDS the running balance
+    // ("...Debited Rs:168. Avl Bal Rs:1055"), so these must NOT reject on their own — they
+    // only mark a message as non-transactional when it carries no action verb (i.e. it's a
+    // pure balance-enquiry / passbook push). Applied conditionally in isTransactionalSms.
+    private val balanceOnlyPatterns = listOf(
+        Regex("""(?:available|avl\.?|avail)\s*(?:bal|balance)""", RegexOption.IGNORE_CASE),
+        Regex("""balance\s*(?:is|:)\s*(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE),
+        Regex("""your\s+balance""", RegexOption.IGNORE_CASE),
+    )
+
     // Non-bank sender IDs that should be ignored even if they match the format
     private val excludedSenders = listOf(
         "BEWKOF", "MYNTRA", "FLPKRT", "AMAZIN", "MEESHO", "AJIOOO",
@@ -234,6 +257,11 @@ class SmsParser @Inject constructor(
         val hasTransactionKeyword = (debitKeywords + creditKeywords).any {
             body.contains(it, ignoreCase = true)
         }
+
+        // A balance/enquiry phrase only disqualifies the SMS when there's NO debit/credit
+        // action — otherwise a genuine debit that merely reports the running balance would
+        // be wrongly dropped.
+        if (!hasTransactionKeyword && balanceOnlyPatterns.any { it.containsMatchIn(body) }) return false
 
         return hasAmount && hasTransactionKeyword
     }
@@ -272,6 +300,8 @@ class SmsParser @Inject constructor(
         val hasTransactionKeyword = (debitKeywords + creditKeywords).any {
             rawSms.contains(it, ignoreCase = true)
         }
+        // Balance phrases only disqualify when no action verb is present (see isTransactionalSms).
+        if (!hasTransactionKeyword && balanceOnlyPatterns.any { it.containsMatchIn(rawSms) }) return false
         return hasAmount && hasTransactionKeyword
     }
 
