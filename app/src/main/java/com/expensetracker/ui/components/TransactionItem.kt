@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,8 +29,6 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -47,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.expensetracker.data.model.PaymentSource
 import com.expensetracker.data.model.Transaction
@@ -70,21 +70,22 @@ fun TransactionItem(
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     val categoryStyle = getCategoryStyle(transaction.category)
 
-    Card(
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        cornerRadius = 16.dp,
+        contentPadding = PaddingValues(12.dp),
         onClick = { showMenu = true }
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                // weight(1f) lets the merchant block yield space to the amount so a long
+                // name ellipsizes rather than crowding the figure on the right.
                 modifier = Modifier.weight(1f)
             ) {
                 // Category colored icon box
@@ -108,12 +109,15 @@ fun TransactionItem(
                     )
                 }
 
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = transaction.merchant,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                             textDecoration = if (transaction.isSelfTransfer) TextDecoration.LineThrough else TextDecoration.None
                         )
                         if (transaction.isSelfTransfer) {
@@ -142,7 +146,12 @@ fun TransactionItem(
                 }
             }
 
-            Column(horizontalAlignment = Alignment.End) {
+            // Give the amount column a little breathing room from the merchant block so a
+            // wide figure can never collide with the name on its left.
+            Column(
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
                 // When split, the bold figure is YOUR share (effective amount); the full
                 // total is shown struck-through above it so nothing looks lost.
                 val shownAmount = if (transaction.isSplit) transaction.effectiveAmount else transaction.amount
@@ -151,6 +160,7 @@ fun TransactionItem(
                         text = currencyFormat.format(transaction.amount),
                         style = MaterialTheme.typography.labelSmall,
                         textDecoration = TextDecoration.LineThrough,
+                        maxLines = 1,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -158,6 +168,8 @@ fun TransactionItem(
                     text = "${if (transaction.type == TransactionType.DEBIT) "-" else "+"}${currencyFormat.format(shownAmount)}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
                     color = when {
                         transaction.isSelfTransfer -> Color.Gray
                         transaction.type == TransactionType.DEBIT -> MaterialTheme.colorScheme.error
@@ -167,6 +179,7 @@ fun TransactionItem(
                 Text(
                     text = if (transaction.isSplit) "Split" else getSourceLabel(transaction.source),
                     style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
                     color = if (transaction.isSplit) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
                 )

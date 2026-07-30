@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,8 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import com.expensetracker.data.local.BudgetPreferences
 import com.expensetracker.data.model.TransactionCategory
 import com.expensetracker.ui.components.CategoryStyle
+import com.expensetracker.ui.components.GlassCard
+import com.expensetracker.ui.components.GlassSectionHeader
 import com.expensetracker.ui.components.getCategoryStyle
 import com.expensetracker.viewmodel.ExpenseViewModel
 import java.text.NumberFormat
@@ -89,16 +90,9 @@ fun BudgetScreen(
 
         // Total monthly budget
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Total Monthly Budget",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    GlassSectionHeader(title = "Total Monthly Budget")
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = totalBudget,
@@ -167,11 +161,7 @@ fun BudgetScreen(
 
         item {
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Category Limits",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            GlassSectionHeader(title = "Category Limits")
         }
 
         items(spendingCategories) { category ->
@@ -200,11 +190,11 @@ private fun CategoryBudgetItem(
     }
     val budget = budgetPreferences.getCategoryBudget(category)
 
-    Card(
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        contentPadding = PaddingValues(12.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)

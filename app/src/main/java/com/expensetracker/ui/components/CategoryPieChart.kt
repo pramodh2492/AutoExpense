@@ -1,23 +1,30 @@
 package com.expensetracker.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.expensetracker.data.model.TransactionCategory
 
@@ -76,18 +83,35 @@ fun CategoryPieChart(
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(start = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             sortedData.forEachIndexed { index, (category, amount) ->
+                val swatchColor = categoryColors[index % categoryColors.size]
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Canvas(modifier = Modifier.size(10.dp)) {
-                        drawCircle(color = categoryColors[index % categoryColors.size])
-                    }
-                    Text(
-                        text = "${category.displayName}\n₹${String.format("%,.0f", amount)} (${((amount / total) * 100).toInt()}%)",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(start = 6.dp)
+                    // Rounded accent-tinted swatch
+                    Box(
+                        modifier = Modifier
+                            .size(width = 12.dp, height = 12.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(swatchColor.copy(alpha = 0.25f))
+                            .padding(2.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(swatchColor)
                     )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = category.displayName,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "₹${String.format("%,.0f", amount)} · ${((amount / total) * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

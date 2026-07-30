@@ -8,6 +8,8 @@ import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -30,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -38,7 +41,14 @@ import com.expensetracker.analytics.AnalyticsHelper
 import com.expensetracker.data.local.RateAppManager
 import com.expensetracker.data.local.UserPreferences
 import com.expensetracker.tax.TaxCalculator
+import com.expensetracker.ui.components.GlassBackground
+import com.expensetracker.ui.components.LocalSpotlight
 import com.expensetracker.ui.components.RateDialog
+import com.expensetracker.ui.components.SpotlightOverlay
+import com.expensetracker.ui.components.SpotlightTargets
+import com.expensetracker.ui.components.rememberSpotlightState
+import com.expensetracker.ui.components.spotlightTarget
+import androidx.compose.runtime.CompositionLocalProvider
 import com.expensetracker.ui.navigation.NavGraph
 import com.expensetracker.ui.navigation.Screen
 import com.expensetracker.ui.screens.OnboardingScreen
@@ -183,6 +193,9 @@ class MainActivity : FragmentActivity() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
 
+                // Feature-discovery tour state, shared with every screen via LocalSpotlight.
+                val spotlightState = rememberSpotlightState()
+
                 // Rate dialog state
                 var showRateDialog by remember {
                     mutableStateOf(rateAppManager.shouldShowRateDialog())
@@ -210,9 +223,17 @@ class MainActivity : FragmentActivity() {
                     viewModel.scanExistingSms()
                 }
 
+                CompositionLocalProvider(LocalSpotlight provides spotlightState) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                GlassBackground {
                 Scaffold(
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     bottomBar = {
-                        NavigationBar {
+                        NavigationBar(
+                            // Frosted translucent bar so the gradient backdrop glows through.
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                            tonalElevation = 0.dp
+                        ) {
                             NavigationBarItem(
                                 icon = { Icon(Icons.Default.Dashboard, contentDescription = "Home") },
                                 label = { Text("Home", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
@@ -224,6 +245,9 @@ class MainActivity : FragmentActivity() {
                                 }
                             )
                             NavigationBarItem(
+                                modifier = Modifier.spotlightTarget(
+                                    SpotlightTargets.NAV_TRANSACTIONS, spotlightState
+                                ),
                                 icon = { Icon(Icons.Default.List, contentDescription = "Txns") },
                                 label = { Text("Txns", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
                                 selected = currentRoute == Screen.Transactions.route,
@@ -234,6 +258,9 @@ class MainActivity : FragmentActivity() {
                                 }
                             )
                             NavigationBarItem(
+                                modifier = Modifier.spotlightTarget(
+                                    SpotlightTargets.NAV_BUDGET, spotlightState
+                                ),
                                 icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = "Budget") },
                                 label = { Text("Budget", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
                                 selected = currentRoute == Screen.Budget.route,
@@ -272,6 +299,9 @@ class MainActivity : FragmentActivity() {
                             currentRoute == Screen.Transactions.route
                         ) {
                             FloatingActionButton(
+                                modifier = Modifier.spotlightTarget(
+                                    SpotlightTargets.ADD_FAB, spotlightState
+                                ),
                                 onClick = {
                                     navController.navigate(Screen.AddTransaction.route)
                                 }
@@ -307,6 +337,25 @@ class MainActivity : FragmentActivity() {
                         signedInPhoto = signedInPhoto.value,
                         modifier = Modifier.padding(paddingValues)
                     )
+                }
+
+                    // Coach-mark overlay floats above the whole scaffold (nav bar + FAB
+                    // included) so it can spotlight them. The Dashboard starts the tour.
+                    SpotlightOverlay(
+                        state = spotlightState,
+                        onComplete = { viewModel.markFeatureTourSeen() },
+                        onSkip = { viewModel.markFeatureTourSeen() },
+                        onNavigate = { route ->
+                            if (currentRoute != route) {
+                                navController.navigate(route) {
+                                    popUpTo(Screen.Dashboard.route)
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
+                    )
+                }
+                }
                 }
             }
         }

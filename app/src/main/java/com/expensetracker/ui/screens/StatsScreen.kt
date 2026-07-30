@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.expensetracker.ui.components.CategoryPieChart
+import com.expensetracker.ui.components.GlassCard
+import com.expensetracker.ui.components.GlassSectionHeader
 import com.expensetracker.viewmodel.ExpenseViewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -48,16 +48,9 @@ fun StatsScreen(viewModel: ExpenseViewModel) {
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Spending by Category",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    GlassSectionHeader(title = "Spending by Category")
                     Spacer(modifier = Modifier.height(16.dp))
                     if (stats.categoryBreakdown.isNotEmpty()) {
                         CategoryPieChart(
@@ -113,16 +106,9 @@ fun StatsScreen(viewModel: ExpenseViewModel) {
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Top Merchants",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    GlassSectionHeader(title = "Top Merchants")
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (stats.topMerchants.isNotEmpty()) {
@@ -173,16 +159,9 @@ fun StatsScreen(viewModel: ExpenseViewModel) {
 
         if (dailySpend.isNotEmpty()) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Daily Spending",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        GlassSectionHeader(title = "Daily Spending")
                         Spacer(modifier = Modifier.height(12.dp))
                         val maxDaily = dailySpend.values.maxOrNull() ?: 1.0
                         dailySpend.entries.sortedByDescending { it.key }.take(30).forEach { (date, amount) ->

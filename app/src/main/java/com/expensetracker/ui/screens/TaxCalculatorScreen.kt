@@ -14,9 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -42,6 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.expensetracker.ui.components.GlassCard
+import com.expensetracker.ui.components.GlassSectionHeader
+import com.expensetracker.ui.components.GradientPillButton
 import com.expensetracker.tax.AgeGroup
 import com.expensetracker.tax.FinancialYear
 import com.expensetracker.tax.TaxCalculationEngine
@@ -166,11 +166,9 @@ private fun BasicDetailsTab(
         )
 
         Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            "Income Tax Slab Rates",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.fillMaxWidth(),
+        GlassSectionHeader(
+            title = "Income Tax Slab Rates",
+            modifier = Modifier.fillMaxWidth()
         )
 
         SlabTable(
@@ -201,20 +199,18 @@ private fun BasicDetailsTab(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Button(
+        GradientPillButton(
+            text = "Continue",
             onClick = onContinue,
             modifier = Modifier.align(Alignment.End)
-        ) { Text("Continue") }
+        )
     }
 }
 
 @Composable
 private fun SlabTable(title: String, rows: List<Pair<String, String>>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column {
             Text(title, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text("Income Tax Slabs", modifier = Modifier.weight(2f), fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium)
@@ -307,7 +303,7 @@ private fun FormScaffold(
         ) {
             OutlinedButton(onClick = onBack) { Text("Back") }
             Spacer(modifier = Modifier.width(12.dp))
-            Button(onClick = onPrimary) { Text(primaryLabel) }
+            GradientPillButton(text = primaryLabel, onClick = onPrimary)
         }
         Spacer(modifier = Modifier.height(16.dp))
     }

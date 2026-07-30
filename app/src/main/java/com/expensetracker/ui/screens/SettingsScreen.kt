@@ -21,8 +21,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,12 +33,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.expensetracker.data.local.UserPreferences
 import com.expensetracker.notification.NotificationHelper
 import com.expensetracker.security.AppLockManager
+import com.expensetracker.ui.components.GlassCard
+import com.expensetracker.ui.components.GlassSectionHeader
+import com.expensetracker.ui.components.GradientPillButton
+import com.expensetracker.ui.theme.AppTheme
 
 @Composable
 fun SettingsScreen(
@@ -58,6 +61,7 @@ fun SettingsScreen(
     onRescan: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val glass = AppTheme.glass
     var salaryAccount by remember { mutableStateOf(userPreferences.salaryAccountLast4) }
     var newAccount by remember { mutableStateOf("") }
     var accounts by remember { mutableStateOf(userPreferences.userAccountNumbers) }
@@ -77,16 +81,9 @@ fun SettingsScreen(
         )
 
         // Salary Account
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Salary Account",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                GlassSectionHeader(title = "Salary Account")
                 Text(
                     text = "Last 4 digits of your salary account. Credits to this account above the minimum amount will be tagged as Salary.",
                     style = MaterialTheme.typography.bodySmall,
@@ -138,16 +135,9 @@ fun SettingsScreen(
         }
 
         // Other Accounts
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Your Accounts",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                GlassSectionHeader(title = "Your Accounts")
                 Text(
                     text = "Add last 4 digits of all your bank accounts and cards. Transfers between these will be auto-detected as self-transfers.",
                     style = MaterialTheme.typography.bodySmall,
@@ -218,16 +208,9 @@ fun SettingsScreen(
 
         // App Lock
         if (appLockManager != null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "App Lock",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    GlassSectionHeader(title = "App Lock")
                     Text(
                         text = if (appLockManager.isAppLockEnabled) "PIN + Biometric lock is ON"
                             else "Protect your expense data",
@@ -276,11 +259,8 @@ fun SettingsScreen(
         }
 
         // Account
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
                 if (signedInEmail != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -288,20 +268,29 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (signedInPhoto != null) {
-                            coil.compose.AsyncImage(
-                                model = signedInPhoto,
-                                contentDescription = "Profile",
+                            Box(
                                 modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(androidx.compose.foundation.shape.CircleShape),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
+                                    .size(52.dp)
+                                    .clip(androidx.compose.foundation.shape.CircleShape)
+                                    .background(Brush.linearGradient(glass.accentGradient))
+                                    .padding(2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                coil.compose.AsyncImage(
+                                    model = signedInPhoto,
+                                    contentDescription = "Profile",
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            }
                         } else {
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(androidx.compose.foundation.shape.CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
+                                    .background(Brush.linearGradient(glass.accentGradient)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -332,11 +321,7 @@ fun SettingsScreen(
                         Text("Sign out")
                     }
                 } else {
-                    Text(
-                        text = "Account",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    GlassSectionHeader(title = "Account")
                     Text(
                         text = "Sign in with Google to backup & sync across devices",
                         style = MaterialTheme.typography.bodySmall,
@@ -344,28 +329,20 @@ fun SettingsScreen(
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                     if (onSignIn != null) {
-                        Button(
-                            onClick = onSignIn,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Sign in with Google")
-                        }
+                        GradientPillButton(
+                            text = "Sign in with Google",
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = onSignIn
+                        )
                     }
                 }
             }
         }
 
         // Cloud Backup & Restore
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Cloud Backup",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                GlassSectionHeader(title = "Cloud Backup")
                 Text(
                     text = "Your data syncs automatically. Use Restore on a new device to recover everything.",
                     style = MaterialTheme.typography.bodySmall,

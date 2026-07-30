@@ -21,8 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,7 +42,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TrendingDown
@@ -59,8 +60,15 @@ import com.expensetracker.data.local.Insight
 import com.expensetracker.data.local.InsightType
 import com.expensetracker.tax.TaxCalculator
 import com.expensetracker.tax.TaxInsights
+import androidx.compose.foundation.layout.PaddingValues
 import com.expensetracker.ui.components.CategoryPieChart
+import com.expensetracker.ui.components.GlassCard
+import com.expensetracker.ui.components.GlassSectionHeader
+import com.expensetracker.ui.components.LocalSpotlight
+import com.expensetracker.ui.components.SpotlightStep
+import com.expensetracker.ui.components.SpotlightTargets
 import com.expensetracker.ui.components.TransactionItem
+import com.expensetracker.ui.components.spotlightTarget
 import com.expensetracker.ui.navigation.Screen
 import com.expensetracker.viewmodel.ExpenseViewModel
 import com.expensetracker.viewmodel.TimePeriod
@@ -82,6 +90,15 @@ fun DashboardScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     val context = LocalContext.current
+
+    // One-time interactive feature-discovery tour. Runs once the first transactions have
+    // loaded, so the elements it spotlights (balance card, nav, FAB) actually exist.
+    val spotlight = LocalSpotlight.current
+    LaunchedEffect(spotlight, transactions.isNotEmpty()) {
+        if (spotlight != null && transactions.isNotEmpty() && !viewModel.hasSeenFeatureTour()) {
+            spotlight.start(featureTourSteps(Screen.Dashboard.route, Screen.Transactions.route))
+        }
+    }
 
     // Tax insights state
     var taxInsights by remember { mutableStateOf<TaxInsights?>(null) }
@@ -119,7 +136,12 @@ fun DashboardScreen(
                         )
                     }
 
-                    IconButton(onClick = { viewModel.scanExistingSms() }) {
+                    IconButton(
+                        onClick = { viewModel.scanExistingSms() },
+                        modifier = if (spotlight != null)
+                            Modifier.spotlightTarget(SpotlightTargets.REFRESH, spotlight)
+                        else Modifier
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh",
@@ -150,6 +172,11 @@ fun DashboardScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .then(
+                        if (spotlight != null)
+                            Modifier.spotlightTarget(SpotlightTargets.PERIOD_CHIPS, spotlight)
+                        else Modifier
+                    )
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -250,7 +277,13 @@ fun DashboardScreen(
             item {
                 val balance = stats.totalIncome - stats.totalSpent - stats.totalSavings
                 GradientStatCard(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (spotlight != null)
+                                Modifier.spotlightTarget(SpotlightTargets.BALANCE_CARD, spotlight)
+                            else Modifier
+                        ),
                     title = "Balance",
                     amount = currencyFormat.format(balance),
                     gradientColors = if (balance >= 0)
@@ -294,11 +327,8 @@ fun DashboardScreen(
 
             if (stats.categoryBreakdown.isNotEmpty()) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column {
                             Text(
                                 text = "Where your money goes",
                                 style = MaterialTheme.typography.titleMedium,
@@ -319,11 +349,7 @@ fun DashboardScreen(
             // Smart Insights
             if (insights.isNotEmpty()) {
                 item {
-                    Text(
-                        text = "Insights",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    GlassSectionHeader(title = "Insights")
                 }
                 items(insights) { insight ->
                     InsightCard(insight = insight)
@@ -331,11 +357,7 @@ fun DashboardScreen(
             }
 
             item {
-                Text(
-                    text = "Recent Transactions",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                GlassSectionHeader(title = "Recent Transactions")
             }
 
             items(transactions.take(10)) { transaction ->
@@ -343,6 +365,60 @@ fun DashboardScreen(
             }
         }
     }
+}
+
+/**
+ * The one-time feature-discovery tour shown on first run. It opens with a quick orientation
+ * on the dashboard, then navigates to the Transactions page — the heart of the app — and
+ * spotlights a real transaction row to teach the two core actions: changing a category and
+ * splitting an expense with friends.
+ *
+ * @param transactionsRoute the nav route for the Transactions list, so steps can jump there.
+ */
+private fun featureTourSteps(dashboardRoute: String, transactionsRoute: String): List<SpotlightStep> {
+    val txnAccent = Color(0xFF26A69A)
+    return listOf(
+        SpotlightStep(
+            targetKey = SpotlightTargets.BALANCE_CARD,
+            title = "Your money at a glance",
+            description = "This card shows your balance for the selected period — income minus what you've spent and saved.",
+            icon = Icons.Default.AccountBalanceWallet,
+            route = dashboardRoute
+        ),
+        SpotlightStep(
+            targetKey = SpotlightTargets.PERIOD_CHIPS,
+            title = "Switch the time period",
+            description = "Tap a chip to see Today, this week, this month, or a custom range. You start on Today.",
+            icon = Icons.Default.Timeline,
+            route = dashboardRoute
+        ),
+        // From here the tour lives on the Transactions page.
+        SpotlightStep(
+            targetKey = SpotlightTargets.FIRST_TRANSACTION,
+            title = "This is where it all happens",
+            description = "Every transaction lands here, auto-sorted by date. Tap any one to open its options — let's try it.",
+            icon = Icons.Default.Receipt,
+            accent = txnAccent,
+            route = transactionsRoute
+        ),
+        SpotlightStep(
+            targetKey = SpotlightTargets.FIRST_TRANSACTION,
+            title = "Fix the category",
+            description = "Wrong category? Tap the transaction and pick the right one. Choose to apply it to just this one, or to every transaction from that merchant.",
+            icon = Icons.Default.Category,
+            accent = txnAccent,
+            route = transactionsRoute
+        ),
+        SpotlightStep(
+            targetKey = SpotlightTargets.FIRST_TRANSACTION,
+            title = "Split with friends",
+            description = "Shared the bill? Tap a transaction and choose Split — add the friends you split with and only your share counts toward your spending.",
+            icon = Icons.Default.Groups,
+            primaryLabel = "Got it",
+            accent = txnAccent,
+            route = transactionsRoute
+        )
+    )
 }
 
 @Composable
@@ -355,21 +431,30 @@ fun GradientStatCard(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(gradientColors))
-            .padding(if (hero) 24.dp else 20.dp)
     ) {
-        Column {
+        // Glossy diagonal sheen for a richer, glassy hero.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color.White.copy(alpha = 0.22f), Color.Transparent)
+                    )
+                )
+        )
+        Column(modifier = Modifier.padding(if (hero) 24.dp else 20.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
-                color = Color.White.copy(alpha = 0.85f)
+                color = Color.White.copy(alpha = 0.9f)
             )
             Spacer(modifier = Modifier.height(if (hero) 8.dp else 4.dp))
             Text(
                 text = amount,
                 style = MaterialTheme.typography.headlineLarge.copy(
-                    fontSize = if (hero) 34.sp else 22.sp
+                    fontSize = if (hero) 36.sp else 22.sp
                 ),
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -378,7 +463,7 @@ fun GradientStatCard(
     }
 }
 
-/** Small, low-noise tile for supporting numbers under the hero balance card. */
+/** Small, low-noise glass tile for supporting numbers under the hero balance card. */
 @Composable
 fun CompactStatTile(
     modifier: Modifier = Modifier,
@@ -387,18 +472,23 @@ fun CompactStatTile(
     accent: Color,
     icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    Card(
-        modifier = modifier,
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accent,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+    GlassCard(modifier = modifier, cornerRadius = 18.dp, contentPadding = PaddingValues(14.dp)) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(accent.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelMedium,
@@ -424,21 +514,25 @@ fun InsightCard(insight: Insight) {
         InsightType.TIP -> Icons.Default.Lightbulb to Color(0xFFFFAB40)
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp, contentPadding = PaddingValues(14.dp)) {
         Row(
-            modifier = Modifier.padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(24.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(color.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
             Column {
                 Text(
                     text = insight.title,

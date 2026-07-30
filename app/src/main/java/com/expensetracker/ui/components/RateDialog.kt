@@ -2,6 +2,7 @@ package com.expensetracker.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,8 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -48,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.expensetracker.ui.theme.AppTheme
 import kotlinx.coroutines.delay
 
 /**
@@ -60,6 +60,7 @@ fun RateDialog(
     onLater: () -> Unit,
     onNever: () -> Unit
 ) {
+    val glass = AppTheme.glass
     var selectedStars by remember { mutableIntStateOf(0) }
     var animateIn by remember { mutableStateOf(false) }
 
@@ -98,8 +99,9 @@ fun RateDialog(
                         interactionSource = remember { MutableInteractionSource() }
                     ) { /* Prevent dismiss on card click */ },
                 shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, glass.glassBorder),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = glass.glassSolid
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
             ) {
@@ -113,15 +115,7 @@ fun RateDialog(
                             .fillMaxWidth()
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFF7C4DFF),
-                                        Color(0xFF00E5FF),
-                                        Color(0xFFFFAB40)
-                                    )
-                                )
-                            )
+                            .background(Brush.horizontalGradient(glass.accentGradient))
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -167,7 +161,7 @@ fun RateDialog(
                             Icon(
                                 imageVector = if (isSelected) Icons.Filled.Star else Icons.Outlined.StarOutline,
                                 contentDescription = "Star $i",
-                                tint = if (isSelected) Color(0xFFFFAB40) else MaterialTheme.colorScheme.outline,
+                                tint = if (isSelected) glass.accentGradient.first() else MaterialTheme.colorScheme.outline,
                                 modifier = Modifier
                                     .size(44.dp)
                                     .scale(starScale)
@@ -186,25 +180,11 @@ fun RateDialog(
                     Spacer(modifier = Modifier.height(28.dp))
 
                     // Rate Now button — gradient-style primary
-                    Button(
+                    GradientPillButton(
+                        text = "Rate on Play Store",
                         onClick = onRate,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF7C4DFF)
-                        )
-                    ) {
-                        Text(
-                            text = "Rate on Play Store",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp
-                            ),
-                            color = Color.White
-                        )
-                    }
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
 

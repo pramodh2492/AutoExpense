@@ -1,19 +1,25 @@
 package com.expensetracker.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -28,12 +34,16 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.expensetracker.data.model.SplitParticipant
 import com.expensetracker.data.model.Transaction
+import com.expensetracker.ui.theme.AppTheme
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -61,6 +71,7 @@ fun SplitDialog(
     onSave: (List<SplitParticipant>) -> Unit,
     onClear: () -> Unit
 ) {
+    val glass = AppTheme.glass
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
 
     // Seed the friend rows. If already split, load them; otherwise start with one friend
@@ -89,7 +100,28 @@ fun SplitDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (existing.isEmpty()) "Split with friends" else "Edit split") },
+        containerColor = glass.glassSolid,
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Brush.linearGradient(glass.accentGradient)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(if (existing.isEmpty()) "Split with friends" else "Edit split")
+            }
+        },
         text = {
             Column(
                 modifier = Modifier
@@ -111,37 +143,43 @@ fun SplitDialog(
                 Spacer(Modifier.height(12.dp))
 
                 rows.forEachIndexed { index, row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    GlassCard(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        cornerRadius = 16.dp,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        OutlinedTextField(
-                            value = row.name,
-                            onValueChange = { rows[index] = rows[index].copy(name = it) },
-                            label = { Text("Friend") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1.3f)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        OutlinedTextField(
-                            value = row.share,
-                            onValueChange = { new ->
-                                // Allow only digits and a single decimal point.
-                                if (new.isEmpty() || new.matches(Regex("""\d*\.?\d*"""))) {
-                                    rows[index] = rows[index].copy(share = new)
-                                }
-                            },
-                            label = { Text("Owes") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Checkbox(
-                            checked = row.paid,
-                            onCheckedChange = { rows[index] = rows[index].copy(paid = it) }
-                        )
-                        IconButton(onClick = { rows.removeAt(index) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Remove friend")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = row.name,
+                                onValueChange = { rows[index] = rows[index].copy(name = it) },
+                                label = { Text("Friend") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1.3f)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            OutlinedTextField(
+                                value = row.share,
+                                onValueChange = { new ->
+                                    // Allow only digits and a single decimal point.
+                                    if (new.isEmpty() || new.matches(Regex("""\d*\.?\d*"""))) {
+                                        rows[index] = rows[index].copy(share = new)
+                                    }
+                                },
+                                label = { Text("Owes") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.weight(1f)
+                            )
+                            Checkbox(
+                                checked = row.paid,
+                                onCheckedChange = { rows[index] = rows[index].copy(paid = it) }
+                            )
+                            IconButton(onClick = { rows.removeAt(index) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Remove friend")
+                            }
                         }
                     }
                 }
@@ -179,7 +217,8 @@ fun SplitDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            GradientPillButton(
+                text = "Save",
                 enabled = yourShare >= 0,
                 onClick = {
                     // Keep only named friends with a positive share.
@@ -192,7 +231,7 @@ fun SplitDialog(
                     }
                     if (participants.isEmpty()) onClear() else onSave(participants)
                 }
-            ) { Text("Save") }
+            )
         },
         dismissButton = {
             Row {

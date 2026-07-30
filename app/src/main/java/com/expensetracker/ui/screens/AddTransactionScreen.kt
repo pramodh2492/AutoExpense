@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,10 @@ import com.expensetracker.data.model.PaymentSource
 import com.expensetracker.data.model.Transaction
 import com.expensetracker.data.model.TransactionCategory
 import com.expensetracker.data.model.TransactionType
+import com.expensetracker.ui.components.GlassCard
+import com.expensetracker.ui.components.GlassSectionHeader
+import com.expensetracker.ui.components.GradientPillButton
+import com.expensetracker.ui.theme.AppTheme
 import com.expensetracker.viewmodel.ExpenseViewModel
 import java.time.LocalDateTime
 
@@ -48,6 +53,13 @@ fun AddTransactionScreen(
     var showCategoryPicker by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf("") }
 
+    val glass = AppTheme.glass
+    val chipColors = FilterChipDefaults.filterChipColors(
+        selectedContainerColor = glass.accentGradient.first().copy(alpha = 0.30f),
+        selectedLabelColor = MaterialTheme.colorScheme.onSurface,
+        containerColor = Color.Transparent
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -61,134 +73,151 @@ fun AddTransactionScreen(
             fontWeight = FontWeight.Bold
         )
 
-        // Debit / Credit toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = selectedType == TransactionType.DEBIT,
-                onClick = { selectedType = TransactionType.DEBIT },
-                label = { Text("Expense (Debit)") }
-            )
-            FilterChip(
-                selected = selectedType == TransactionType.CREDIT,
-                onClick = { selectedType = TransactionType.CREDIT },
-                label = { Text("Income (Credit)") }
-            )
+        // Amount + type + merchant details
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                // Debit / Credit toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedType == TransactionType.DEBIT,
+                        onClick = { selectedType = TransactionType.DEBIT },
+                        label = { Text("Expense (Debit)") },
+                        colors = chipColors
+                    )
+                    FilterChip(
+                        selected = selectedType == TransactionType.CREDIT,
+                        onClick = { selectedType = TransactionType.CREDIT },
+                        label = { Text("Income (Credit)") },
+                        colors = chipColors
+                    )
+                }
+
+                // Prominent amount field
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Amount (₹)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = merchant,
+                    onValueChange = { merchant = it },
+                    label = { Text(if (selectedType == TransactionType.DEBIT) "Paid to (shop/person/app)" else "Received from (person/company)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
-
-        OutlinedTextField(
-            value = amount,
-            onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } },
-            label = { Text("Amount (₹)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = merchant,
-            onValueChange = { merchant = it },
-            label = { Text(if (selectedType == TransactionType.DEBIT) "Paid to (shop/person/app)" else "Received from (person/company)") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
 
         // Payment source
-        Text(
-            text = "Payment method",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Medium
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            listOf(PaymentSource.UPI, PaymentSource.CREDIT_CARD, PaymentSource.DEBIT_CARD).forEach { source ->
-                FilterChip(
-                    selected = selectedSource == source,
-                    onClick = { selectedSource = source },
-                    label = {
-                        Text(
-                            when (source) {
-                                PaymentSource.UPI -> "UPI"
-                                PaymentSource.CREDIT_CARD -> "Credit Card"
-                                PaymentSource.DEBIT_CARD -> "Debit Card"
-                                else -> source.name
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                GlassSectionHeader(title = "Payment method")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    listOf(PaymentSource.UPI, PaymentSource.CREDIT_CARD, PaymentSource.DEBIT_CARD).forEach { source ->
+                        FilterChip(
+                            selected = selectedSource == source,
+                            onClick = { selectedSource = source },
+                            label = {
+                                Text(
+                                    when (source) {
+                                        PaymentSource.UPI -> "UPI"
+                                        PaymentSource.CREDIT_CARD -> "Credit Card"
+                                        PaymentSource.DEBIT_CARD -> "Debit Card"
+                                        else -> source.name
+                                    },
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             },
-                            style = MaterialTheme.typography.labelSmall
+                            colors = chipColors
                         )
                     }
-                )
-            }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            listOf(PaymentSource.NET_BANKING, PaymentSource.WALLET, PaymentSource.ECS_NACH).forEach { source ->
-                FilterChip(
-                    selected = selectedSource == source,
-                    onClick = { selectedSource = source },
-                    label = {
-                        Text(
-                            when (source) {
-                                PaymentSource.NET_BANKING -> "Net Banking"
-                                PaymentSource.WALLET -> "Wallet"
-                                PaymentSource.ECS_NACH -> "ECS/NACH"
-                                else -> source.name
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    listOf(PaymentSource.NET_BANKING, PaymentSource.WALLET, PaymentSource.ECS_NACH).forEach { source ->
+                        FilterChip(
+                            selected = selectedSource == source,
+                            onClick = { selectedSource = source },
+                            label = {
+                                Text(
+                                    when (source) {
+                                        PaymentSource.NET_BANKING -> "Net Banking"
+                                        PaymentSource.WALLET -> "Wallet"
+                                        PaymentSource.ECS_NACH -> "ECS/NACH"
+                                        else -> source.name
+                                    },
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             },
-                            style = MaterialTheme.typography.labelSmall
+                            colors = chipColors
                         )
                     }
-                )
-            }
-        }
-
-        // Category
-        Text(
-            text = "Category",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Medium
-        )
-        Column {
-            OutlinedButton(
-                onClick = { showCategoryPicker = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(selectedCategory.displayName)
-            }
-            DropdownMenu(
-                expanded = showCategoryPicker,
-                onDismissRequest = { showCategoryPicker = false }
-            ) {
-                TransactionCategory.entries.forEach { category ->
-                    DropdownMenuItem(
-                        text = { Text(category.displayName) },
-                        onClick = {
-                            selectedCategory = category
-                            showCategoryPicker = false
-                        }
-                    )
                 }
             }
         }
 
-        OutlinedTextField(
-            value = note,
-            onValueChange = { note = it },
-            label = { Text("Note (optional)") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Category
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                GlassSectionHeader(title = "Category")
+                Column {
+                    OutlinedButton(
+                        onClick = { showCategoryPicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(selectedCategory.displayName)
+                    }
+                    DropdownMenu(
+                        expanded = showCategoryPicker,
+                        onDismissRequest = { showCategoryPicker = false }
+                    ) {
+                        TransactionCategory.entries.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category.displayName) },
+                                onClick = {
+                                    selectedCategory = category
+                                    showCategoryPicker = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Note
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = note,
+                onValueChange = { note = it },
+                label = { Text("Note (optional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(
+        GradientPillButton(
+            text = if (selectedType == TransactionType.DEBIT) "Add Expense" else "Add Income",
+            modifier = Modifier.fillMaxWidth(),
+            enabled = amount.isNotBlank() && merchant.isNotBlank(),
             onClick = {
-                val amountVal = amount.toDoubleOrNull() ?: return@Button
-                if (merchant.isBlank()) return@Button
+                val amountVal = amount.toDoubleOrNull() ?: return@GradientPillButton
+                if (merchant.isBlank()) return@GradientPillButton
 
                 val now = LocalDateTime.now()
                 val transaction = Transaction(
@@ -204,11 +233,7 @@ fun AddTransactionScreen(
                 )
                 viewModel.addManualTransaction(transaction)
                 onDone()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = amount.isNotBlank() && merchant.isNotBlank()
-        ) {
-            Text(if (selectedType == TransactionType.DEBIT) "Add Expense" else "Add Income")
-        }
+            }
+        )
     }
 }

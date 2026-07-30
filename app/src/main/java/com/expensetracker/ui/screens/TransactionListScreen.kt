@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,8 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inbox
@@ -25,9 +28,11 @@ import androidx.compose.material3.DismissDirection
 import androidx.compose.material3.DismissValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -47,6 +52,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,7 +61,12 @@ import androidx.compose.ui.unit.dp
 import com.expensetracker.data.model.Transaction
 import com.expensetracker.data.model.TransactionCategory
 import com.expensetracker.data.model.TransactionType
+import com.expensetracker.ui.components.GlassCard
+import com.expensetracker.ui.components.LocalSpotlight
+import com.expensetracker.ui.components.SpotlightTargets
 import com.expensetracker.ui.components.TransactionItem
+import com.expensetracker.ui.components.spotlightTarget
+import com.expensetracker.ui.theme.AppTheme
 import com.expensetracker.viewmodel.ExpenseViewModel
 import java.text.NumberFormat
 import java.time.LocalDate
@@ -72,6 +84,8 @@ enum class ViewFilter(val label: String) {
 @Composable
 fun TransactionListScreen(viewModel: ExpenseViewModel) {
     val transactions by viewModel.transactions.collectAsState()
+    val glass = AppTheme.glass
+    val spotlight = LocalSpotlight.current
     var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
     var renameText by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(ViewFilter.DEBITS) }
@@ -110,6 +124,9 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
 
     val grouped = filtered.groupBy { it.timestamp.toLocalDate() }
         .toSortedMap(compareByDescending { it })
+
+    // The topmost visible row — the tour spotlights it to demo tap-to-recategorize/split.
+    val firstTxnId = grouped.entries.firstOrNull()?.value?.firstOrNull()?.id
 
     // Use effective (post-split) amounts so the header total matches the figures shown on
     // each row — a split debit contributes only your share.
@@ -166,7 +183,17 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                 FilterChip(
                     selected = selectedFilter == filter,
                     onClick = { selectedFilter = filter },
-                    label = { Text(label) }
+                    label = { Text(label) },
+                    shape = RoundedCornerShape(50),
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = Color.Transparent,
+                        selectedContainerColor = glass.accentGradient.first().copy(alpha = 0.22f),
+                        selectedLabelColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        borderColor = MaterialTheme.colorScheme.outline,
+                        selectedBorderColor = glass.accentGradient.first()
+                    )
                 )
             }
         }
@@ -185,7 +212,14 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                     contentDescription = "Search"
                 )
             },
-            singleLine = true
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = glass.glassSolid.copy(alpha = 0.25f),
+                unfocusedContainerColor = glass.glassSolid.copy(alpha = 0.18f),
+                focusedBorderColor = glass.accentGradient.first(),
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            )
         )
 
         if (filtered.isEmpty()) {
@@ -196,36 +230,38 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                     .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Inbox,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "No transactions found",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (searchQuery.isNotBlank()) {
-                            "No results for '$searchQuery'"
-                        } else {
-                            when (selectedFilter) {
-                                ViewFilter.DEBITS -> "No debits this period"
-                                ViewFilter.CREDITS -> "No credits this period"
-                                ViewFilter.ALL -> "No transactions this period"
-                                ViewFilter.TO_CATEGORIZE -> "Everything's categorized 🎉"
-                            }
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        textAlign = TextAlign.Center
-                    )
+                GlassCard(contentPadding = PaddingValues(32.dp)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Inbox,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No transactions found",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (searchQuery.isNotBlank()) {
+                                "No results for '$searchQuery'"
+                            } else {
+                                when (selectedFilter) {
+                                    ViewFilter.DEBITS -> "No debits this period"
+                                    ViewFilter.CREDITS -> "No credits this period"
+                                    ViewFilter.ALL -> "No transactions this period"
+                                    ViewFilter.TO_CATEGORIZE -> "Everything's categorized 🎉"
+                                }
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         } else {
@@ -259,6 +295,9 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                         )
 
                         SwipeToDismiss(
+                            modifier = if (spotlight != null && transaction.id == firstTxnId)
+                                Modifier.spotlightTarget(SpotlightTargets.FIRST_TRANSACTION, spotlight)
+                            else Modifier,
                             state = dismissState,
                             directions = setOf(DismissDirection.EndToStart),
                             background = {
@@ -272,15 +311,21 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .clip(RoundedCornerShape(16.dp))
                                         .background(color)
                                         .padding(horizontal = 20.dp),
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        tint = Color.White
-                                    )
+                                    // Only render while the row is actually being swiped — the
+                                    // card on top is now translucent glass, so a permanently
+                                    // drawn icon would bleed through and overlap the amount.
+                                    if (dismissState.dismissDirection == DismissDirection.EndToStart) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete",
+                                            tint = Color.White
+                                        )
+                                    }
                                 }
                             },
                             dismissContent = {
@@ -359,9 +404,12 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
 
     // Split-with-friends dialog
     splittingTransaction?.let { txn ->
+        // Parse the stored split once per opened transaction rather than on every
+        // recomposition of the dialog.
+        val existingSplit = remember(txn.id, txn.splitJson) { viewModel.splitParticipants(txn) }
         com.expensetracker.ui.components.SplitDialog(
             transaction = txn,
-            existing = viewModel.splitParticipants(txn),
+            existing = existingSplit,
             onDismiss = { splittingTransaction = null },
             onSave = { participants ->
                 viewModel.saveSplit(txn, participants)
@@ -415,6 +463,7 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
 
 @Composable
 private fun DateHeader(date: LocalDate, total: Double) {
+    val glass = AppTheme.glass
     val today = LocalDate.now()
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     val label = when {
@@ -428,14 +477,25 @@ private fun DateHeader(date: LocalDate, total: Double) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp, horizontal = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .padding(end = 10.dp)
+                    .width(4.dp)
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Brush.verticalGradient(glass.accentGradient))
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
         Text(
             text = currencyFormat.format(total),
             style = MaterialTheme.typography.titleSmall,

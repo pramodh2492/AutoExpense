@@ -1,6 +1,5 @@
 package com.expensetracker.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +21,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -45,6 +42,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.expensetracker.ui.components.GlassCard
+import com.expensetracker.ui.components.GlassSectionHeader
+import com.expensetracker.ui.components.GradientPillButton
 import com.expensetracker.ai.SmartQueryEngine
 import com.expensetracker.ai.SavingsGoal
 import com.expensetracker.ai.SavingsGoalManager
@@ -92,11 +92,8 @@ fun AiInsightsScreen(
         // Spending Prediction Card
         prediction?.let { pred ->
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Default.TrendingUp, contentDescription = null,
@@ -178,11 +175,7 @@ fun AiInsightsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Savings Goals",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                GlassSectionHeader(title = "Savings Goals")
                 TextButton(onClick = { showAddGoal = !showAddGoal }) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -233,11 +226,8 @@ fun AiInsightsScreen(
         // AI Chat
         item {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Ask about your expenses",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            GlassSectionHeader(title = "Ask about your expenses")
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "e.g., \"How much did I spend on food?\", \"What's my biggest expense?\"",
                 style = MaterialTheme.typography.bodySmall,
@@ -292,17 +282,10 @@ fun AiInsightsScreen(
 
         if (chatResponse.isNotBlank()) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = chatResponse,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
@@ -316,11 +299,8 @@ private fun AddGoalCard(onAdd: (String, Double, LocalDate) -> Unit) {
     var amount by remember { mutableStateOf("") }
     var months by remember { mutableStateOf("6") }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -347,17 +327,18 @@ private fun AddGoalCard(onAdd: (String, Double, LocalDate) -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(12.dp))
-            TextButton(
+            GradientPillButton(
+                text = "Create Goal",
+                enabled = name.isNotBlank() && amount.isNotBlank(),
                 onClick = {
-                    val targetAmount = amount.toDoubleOrNull() ?: return@TextButton
-                    val targetMonths = months.toIntOrNull() ?: 6
-                    val targetDate = LocalDate.now().plusMonths(targetMonths.toLong())
-                    onAdd(name, targetAmount, targetDate)
-                },
-                enabled = name.isNotBlank() && amount.isNotBlank()
-            ) {
-                Text("Create Goal")
-            }
+                    val targetAmount = amount.toDoubleOrNull()
+                    if (targetAmount != null) {
+                        val targetMonths = months.toIntOrNull() ?: 6
+                        val targetDate = LocalDate.now().plusMonths(targetMonths.toLong())
+                        onAdd(name, targetAmount, targetDate)
+                    }
+                }
+            )
         }
     }
 }
@@ -373,11 +354,8 @@ private fun GoalCard(
 ) {
     var addAmount by remember { mutableStateOf("") }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

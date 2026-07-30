@@ -13,6 +13,8 @@ import com.expensetracker.data.model.TransactionType
 import com.expensetracker.data.repository.TransactionRepository
 import com.expensetracker.sms.SmsScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.Job
@@ -37,7 +39,7 @@ class ExpenseViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _selectedPeriod = MutableStateFlow(TimePeriod.THIS_MONTH)
+    private val _selectedPeriod = MutableStateFlow(TimePeriod.TODAY)
     val selectedPeriod: StateFlow<TimePeriod> = _selectedPeriod.asStateFlow()
 
     val transactions: StateFlow<List<Transaction>> = repository.getAllTransactions()
@@ -98,7 +100,8 @@ class ExpenseViewModel @Inject constructor(
             launch { repository.getExpenseStats(start, end).collect { _stats.value = it } }
             launch { repository.getDailySpend(start, end).collect { _dailySpend.value = it } }
             launch { repository.getAllTransactions().collect { txns ->
-                _insights.value = insightsEngine.generateInsights(txns)
+                // generateInsights loops over every transaction; keep it off the main thread.
+                _insights.value = withContext(Dispatchers.IO) { insightsEngine.generateInsights(txns) }
             } }
         }
     }
@@ -108,6 +111,10 @@ class ExpenseViewModel @Inject constructor(
             val startTime = System.currentTimeMillis()
             try {
                 _isLoading.value = true
+                // All SMS reading, parsing and repair loops are CPU/IO-heavy and MUST run
+                // off the main thread — viewModelScope defaults to Dispatchers.Main, so
+                // without this the full-inbox scan (up to 10 years) blocks the UI and ANRs.
+                withContext(Dispatchers.IO) {
                 // One-time data repairs, bumped when parser rules change.
                 // v2: fix wrong credit/debit type. v3: purge rows older builds wrongly
                 // captured (ads, loyalty/points SMS) that current rules now reject.
@@ -148,6 +155,7 @@ class ExpenseViewModel @Inject constructor(
                 // Save the latest SMS timestamp for next scan
                 if (scanResult.maxTimestamp > userPreferences.lastSmsTimestamp) {
                     userPreferences.lastSmsTimestamp = scanResult.maxTimestamp
+                }
                 }
             } catch (e: Exception) {
                 // Silently handle - permission not granted or other issue
@@ -207,6 +215,24 @@ class ExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             repository.update(transaction.copy(isSelfTransfer = !transaction.isSelfTransfer))
         }
+    }
+
+    /** Whether the one-time "tap a transaction to edit/split" tip has been dismissed. */
+    fun hasSeenTransactionTips(): Boolean = userPreferences.hasSeenTransactionTips
+
+    /** Remember that the user has dismissed the transaction tips tooltip. */
+    fun markTransactionTipsSeen() {
+        userPreferences.hasSeenTransactionTips = true
+    }
+
+    /** Whether the one-time interactive feature-discovery tour has run. */
+    fun hasSeenFeatureTour(): Boolean = userPreferences.hasSeenFeatureTour
+
+    /** Remember that the feature tour completed or was skipped, so it never shows again. */
+    fun markFeatureTourSeen() {
+        userPreferences.hasSeenFeatureTour = true
+        // The tour supersedes the passive transaction tip — don't show both.
+        userPreferences.hasSeenTransactionTips = true
     }
 
     /** Current split participants for a transaction (empty if not split). */

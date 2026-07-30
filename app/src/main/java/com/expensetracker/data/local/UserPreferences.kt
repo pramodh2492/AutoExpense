@@ -45,6 +45,18 @@ class UserPreferences @Inject constructor(
         get() = prefs.getBoolean("has_completed_onboarding", false)
         set(value) = prefs.edit().putBoolean("has_completed_onboarding", value).apply()
 
+    // One-time tip on the transaction list explaining that tapping a row lets you
+    // change category, rename the merchant, and split with friends.
+    var hasSeenTransactionTips: Boolean
+        get() = prefs.getBoolean("has_seen_transaction_tips", false)
+        set(value) = prefs.edit().putBoolean("has_seen_transaction_tips", value).apply()
+
+    // One-time interactive feature-discovery tour (spotlight coach-marks) shown on the
+    // dashboard after the user's first transactions load.
+    var hasSeenFeatureTour: Boolean
+        get() = prefs.getBoolean("has_seen_feature_tour", false)
+        set(value) = prefs.edit().putBoolean("has_seen_feature_tour", value).apply()
+
     fun addAccount(last4: String) {
         val current = userAccountNumbers.toMutableSet()
         current.add(last4)
