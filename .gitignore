@@ -24,3 +24,4 @@ local.properties
 
 # Signed release artifacts (rebuilt from source)
 /app/release
+app/google-services.json.bak
