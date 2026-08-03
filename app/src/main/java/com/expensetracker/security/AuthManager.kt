@@ -18,6 +18,10 @@ class AuthManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val auth: FirebaseAuth
 ) {
+    private companion object {
+        const val TAG = "ExpenseAuth"
+    }
+
     private val googleSignInClient: GoogleSignInClient by lazy {
         val webClientId = getWebClientId()
         val builder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -43,9 +47,29 @@ class AuthManager @Inject constructor(
     suspend fun firebaseAuthWithGoogle(idToken: String): Boolean {
         return try {
             val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val current = auth.currentUser
+            if (current != null && current.isAnonymous) {
+                // The user backed up data under an anonymous UID before signing in.
+                // Link (upgrade) that anon account to Google so the SAME UID — and all
+                // its Firestore data — carries over, instead of stranding it under the
+                // old anon UID and starting fresh under a new Google UID.
+                try {
+                    current.linkWithCredential(credential).await()
+                    return true
+                } catch (e: com.google.firebase.auth.FirebaseAuthUserCollisionException) {
+                    // This Google account already has its own Firebase user (e.g. from a
+                    // previous install). We can't merge two UIDs client-side, so fall
+                    // through and sign into the existing Google account. The anon data
+                    // stays reachable only if it was already synced there; the user's
+                    // real history lives under the Google account, which is the correct
+                    // one to keep signed in.
+                    android.util.Log.w(TAG, "Anon link collided; signing into existing Google account", e)
+                }
+            }
             auth.signInWithCredential(credential).await()
             true
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "Firebase credential exchange failed", e)
             false
         }
     }
@@ -55,6 +79,7 @@ class AuthManager @Inject constructor(
             auth.signInAnonymously().await()
             true
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "Anonymous sign-in failed", e)
             false
         }
     }

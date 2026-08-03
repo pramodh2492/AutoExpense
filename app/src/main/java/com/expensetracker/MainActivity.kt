@@ -64,6 +64,10 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
+    private companion object {
+        const val TAG = "ExpenseAuth"
+    }
+
     @Inject lateinit var userPreferences: UserPreferences
     @Inject lateinit var notificationHelper: NotificationHelper
     @Inject lateinit var budgetPreferences: com.expensetracker.data.local.BudgetPreferences
@@ -101,10 +105,39 @@ class MainActivity : FragmentActivity() {
                         signedInEmail.value = authManager.userEmail
                         signedInName.value = authManager.userName
                         signedInPhoto.value = authManager.userPhotoUrl
+                    } else {
+                        toast("Sign-in couldn't reach the server. Check your connection and try again.")
                     }
                 }
+            } else {
+                // Account resolved but no ID token — almost always a missing/blank
+                // default_web_client_id (client_type 3) in google-services.json.
+                android.util.Log.e(TAG, "Google account had no idToken; check web client id")
+                toast("Sign-in isn't configured correctly (no token). Please update the app.")
             }
-        } catch (_: Exception) {}
+        } catch (e: com.google.android.gms.common.api.ApiException) {
+            // Surface the real status code instead of swallowing it. Code 10 =
+            // DEVELOPER_ERROR: the signing certificate's SHA-1 isn't registered in
+            // Firebase for this package (the usual "works in debug, fails in release").
+            val code = e.statusCode
+            android.util.Log.e(TAG, "Google Sign-In failed: statusCode=$code (${e.message})", e)
+            val msg = when (code) {
+                com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes.DEVELOPER_ERROR ->
+                    "Sign-in configuration error (code 10). This build's certificate isn't registered."
+                com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes.NETWORK_ERROR ->
+                    "Network error during sign-in. Check your connection."
+                com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> null
+                else -> "Google Sign-In failed (code $code)."
+            }
+            msg?.let { toast(it) }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Unexpected sign-in error", e)
+            toast("Something went wrong during sign-in.")
+        }
+    }
+
+    private fun toast(message: String) {
+        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
