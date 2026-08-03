@@ -3,6 +3,14 @@
 All notable changes to AutoExpense are documented here. Versions map to the
 Android `versionName` (`versionCode`) set in `app/build.gradle.kts`.
 
+## 1.1.2 (12) — 2026-08-03
+
+### Fixed
+- **Google Sign-In rejected on installed builds** — the app's signing certificate was
+  not registered for this package, so Google rejected sign-in with `DEVELOPER_ERROR`
+  (status 10). Rebuilt against a Firebase configuration that includes the missing
+  fingerprint.
+
 ## 1.1.1 (11) — 2026-08-03
 
 ### Fixed
