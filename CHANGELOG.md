@@ -3,6 +3,41 @@
 All notable changes to AutoExpense are documented here. Versions map to the
 Android `versionName` (`versionCode`) set in `app/build.gradle.kts`.
 
+## 1.1.1 (11) — 2026-08-03
+
+### Fixed
+- **Backups no longer stranded when you sign in** — if you used the app before
+  signing in, your data was saved under an anonymous account; signing in with Google
+  then created a *separate* account, leaving that history unreachable on a new device.
+  The anonymous account is now linked (upgraded) to your Google account, so the same
+  data carries over.
+
+### Changed
+- **Google Sign-In failures are now reported** — errors were being swallowed by an
+  empty `catch`, so a failed sign-in looked like nothing happening. The specific
+  cause is now logged (tag `ExpenseAuth`) and shown on screen, which makes sign-in
+  problems in release builds diagnosable.
+
+## 1.1.0 (10) — 2026-07-30
+
+### Added
+- **Premium glassmorphism UI** — frosted translucent cards, gradient accents, and a
+  refreshed dark/light theme across the app.
+- **Interactive feature tour** — a guided spotlight walkthrough covering splitting a
+  transaction with friends and changing a category.
+
+### Fixed
+- **Valid bank debits were silently dropped** — messages that report the running
+  balance (e.g. `Debited Rs:168.00 ... Avl Bal Rs:1055.52`) were rejected by the
+  balance-enquiry filter. Balance phrases now only exclude an SMS when it contains no
+  debit/credit action, so genuine transactions get through.
+- **`Rs:` amount format not recognized** — banks that write `Rs:168.00` with a colon
+  (e.g. Union Bank) had no amount extracted, so the transaction was discarded.
+- **Upcoming debits logged as completed** — future-tense messages ("Rs 500 *will be*
+  debited on 05-Aug") were recorded as actual spends and are now excluded.
+- **Payee name missing on some debits** — `Fvg:` (Favouring) now yields the merchant
+  name instead of "Unknown".
+
 ## 1.0.8 (9) — 2026-07-30
 
 ### Added
