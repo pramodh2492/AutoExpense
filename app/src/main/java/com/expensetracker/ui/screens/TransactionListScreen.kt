@@ -65,6 +65,7 @@ import com.expensetracker.data.local.UserPreferences
 import com.expensetracker.ui.components.GlassCard
 import com.expensetracker.ui.components.LocalSpotlight
 import com.expensetracker.ui.components.SpotlightTargets
+import com.expensetracker.ui.components.GroupPickerDialog
 import com.expensetracker.ui.components.SplitActionSheet
 import com.expensetracker.ui.components.TransactionItem
 import com.expensetracker.ui.components.spotlightTarget
@@ -110,6 +111,7 @@ fun TransactionListScreen(
     // Split-with-friends dialog target
     var splittingTransaction by remember { mutableStateOf<Transaction?>(null) }
     var showSplitActionSheet by remember { mutableStateOf<Transaction?>(null) }
+    var showGroupPicker by remember { mutableStateOf<Transaction?>(null) }
     val myGroups by (groupViewModel?.myGroups?.collectAsState() ?: remember { androidx.compose.runtime.mutableStateOf(emptyList()) })
 
     val filteredByType = when (selectedFilter) {
@@ -422,8 +424,8 @@ fun TransactionListScreen(
                 splittingTransaction = txn
             },
             onAddToGroup = {
+                showGroupPicker = txn
                 showSplitActionSheet = null
-                onNavigateToGroups?.invoke()
             },
             onCreateGroup = {
                 showSplitActionSheet = null
@@ -431,6 +433,25 @@ fun TransactionListScreen(
                 else onSignInRequired?.invoke()
             },
             onDismiss = { showSplitActionSheet = null }
+        )
+    }
+
+    // Group picker — shown when user taps "Add to existing group"
+    showGroupPicker?.let { txn ->
+        GroupPickerDialog(
+            groups = myGroups.filter { !it.isClosed },
+            onGroupSelected = { group ->
+                showGroupPicker = null
+                val members = group.members.filter { it.uid != groupViewModel?.currentUid }
+                groupViewModel?.addExpense(
+                    code = group.code,
+                    description = txn.merchant,
+                    amount = txn.amount,
+                    members = members,
+                    onDone = {}
+                )
+            },
+            onDismiss = { showGroupPicker = null }
         )
     }
 

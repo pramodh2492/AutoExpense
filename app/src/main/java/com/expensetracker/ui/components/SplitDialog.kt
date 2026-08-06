@@ -99,6 +99,38 @@ fun SplitActionSheet(
     )
 }
 
+@Composable
+fun GroupPickerDialog(
+    groups: List<com.expensetracker.data.model.ExpenseGroup>,
+    onGroupSelected: (com.expensetracker.data.model.ExpenseGroup) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add to group") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (groups.isEmpty()) {
+                    Text(
+                        "No active groups found.",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    groups.forEach { group ->
+                        GradientPillButton(
+                            text = group.name,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { onGroupSelected(group) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
 /**
  * Split-with-friends dialog. Now includes a contact picker per friend row and
  * fires a pre-filled SMS/WhatsApp intent on save so the user can notify each person.
