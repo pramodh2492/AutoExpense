@@ -182,6 +182,57 @@ fun GroupDetailScreen(
                         }
                     }
                 }
+
+                // Total spent summary at the bottom
+                if (expenses.isNotEmpty()) {
+                    item {
+                        val totalSpent = expenses.sumOf { it.amount }
+                        val myShare = expenses.sumOf { expense ->
+                            val uid = viewModel.currentUid ?: ""
+                            if (expense.paidByUid == uid) {
+                                // I paid — my share is total minus what others owe me
+                                expense.amount - expense.splitAmong.sumOf { it.share }
+                            } else {
+                                // Someone else paid — my share is what I owe
+                                expense.splitAmong.find { it.uid == uid }?.share ?: 0.0
+                            }
+                        }
+                        GlassCard(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        "Total spent",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.6f)
+                                    )
+                                    Text(
+                                        currencyFormat.format(totalSpent),
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        "Your share",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.6f)
+                                    )
+                                    Text(
+                                        currencyFormat.format(myShare),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF4CAF50)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
