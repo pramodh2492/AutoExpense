@@ -1,5 +1,10 @@
 package com.expensetracker.ui.components
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +23,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -37,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -47,55 +55,152 @@ import com.expensetracker.ui.theme.AppTheme
 import java.text.NumberFormat
 import java.util.Locale
 
-/**
- * Editable split row held in dialog state. `share` is a String so the field can be
- * cleared/typed freely; it's parsed to Double only on save.
- */
 private data class SplitRow(
     var name: String,
+    var phone: String = "",
     var share: String,
     var paid: Boolean
 )
 
+@Composable
+fun SplitActionSheet(
+    onSplitWithFriends: () -> Unit,
+    onAddToGroup: () -> Unit,
+    onCreateGroup: () -> Unit,
+    onDismiss: () -> Unit,
+    hasGroups: Boolean
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Split this expense") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GradientPillButton(
+                    text = "Split with friends",
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onDismiss(); onSplitWithFriends() }
+                )
+                if (hasGroups) {
+                    GradientPillButton(
+                        text = "Add to existing group",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { onDismiss(); onAddToGroup() }
+                    )
+                }
+                GradientPillButton(
+                    text = "Create new group",
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onDismiss(); onCreateGroup() }
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
 /**
- * Split-with-friends dialog. You start with your own share plus one friend; the total
- * is divided equally by default and every share is editable. Each friend has a "paid"
- * checkbox — ticking it reduces your recorded spend (handled by the repository). Saving
- * an empty friend list clears the split. The transaction's `amount` is never changed.
+ * Split-with-friends dialog. Now includes a contact picker per friend row and
+ * fires a pre-filled SMS/WhatsApp intent on save so the user can notify each person.
  */
 @Composable
 fun SplitDialog(
     transaction: Transaction,
     existing: List<SplitParticipant>,
+    upiId: String = "",
     onDismiss: () -> Unit,
     onSave: (List<SplitParticipant>) -> Unit,
     onClear: () -> Unit
 ) {
+    val context = LocalContext.current
     val glass = AppTheme.glass
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
 
-    // Seed the friend rows. If already split, load them; otherwise start with one friend
-    // and an equal 2-way split (you + friend) as a sensible default.
     val rows = remember {
         mutableStateListOf<SplitRow>().apply {
             if (existing.isNotEmpty()) {
-                existing.forEach { add(SplitRow(it.name, formatShare(it.share), it.paid)) }
+                existing.forEach { add(SplitRow(it.name, "", formatShare(it.share), it.paid)) }
             } else {
                 val half = transaction.amount / 2.0
-                add(SplitRow("", formatShare(half), false))
+                add(SplitRow("", "", formatShare(half), false))
             }
         }
+    }
+
+    // Track which row is waiting for a contact pick
+    var pendingContactIndex = remember { -1 }
+
+    val contactPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickContact()
+    ) { uri: Uri? ->
+        uri ?: return@rememberLauncherForActivityResult
+        val idx = pendingContactIndex
+        if (idx < 0 || idx >= rows.size) return@rememberLauncherForActivityResult
+        // Read name + phone from the contact URI
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER
+        )
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val contactId = cursor.getString(
+                    cursor.getColumnIndexOrThrow(ContactsContract.Contacts._ID)
+                )
+                val name = cursor.getString(
+                    cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME)
+                ) ?: ""
+                // Fetch phone number
+                context.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    projection,
+                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                    arrayOf(contactId),
+                    null
+                )?.use { phoneCursor ->
+                    if (phoneCursor.moveToFirst()) {
+                        val phone = phoneCursor.getString(
+                            phoneCursor.getColumnIndexOrThrow(
+                                ContactsContract.CommonDataKinds.Phone.NUMBER
+                            )
+                        ) ?: ""
+                        rows[idx] = rows[idx].copy(name = name, phone = phone)
+                    } else {
+                        rows[idx] = rows[idx].copy(name = name)
+                    }
+                }
+            }
+        }
+        pendingContactIndex = -1
     }
 
     fun friendTotal(): Double = rows.sumOf { it.share.toDoubleOrNull() ?: 0.0 }
     val yourShare = (transaction.amount - friendTotal())
 
-    /** Re-divide the total equally across you + all current friends. */
     fun splitEqually() {
-        val people = rows.size + 1 // + you
-        if (people <= 0) return
+        val people = rows.size + 1
         val each = transaction.amount / people
         rows.indices.forEach { i -> rows[i] = rows[i].copy(share = formatShare(each)) }
+    }
+
+    fun sendMessage(row: SplitRow) {
+        val amount = row.share.toDoubleOrNull() ?: return
+        val upiLink = if (upiId.isNotBlank())
+            " Pay here: upi://pay?pa=$upiId&am=${String.format("%.2f", amount)}&tn=${transaction.merchant}"
+        else ""
+        val message = "Hey ${row.name}, your share for ${transaction.merchant} is " +
+            "₹${String.format("%.2f", amount)}.$upiLink"
+        val phone = row.phone.filter { it.isDigit() }
+        val intent = if (phone.isNotEmpty()) {
+            Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phone")).apply {
+                putExtra("sms_body", message)
+            }
+        } else {
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, message)
+            }
+        }
+        context.startActivity(Intent.createChooser(intent, "Notify ${row.name}"))
     }
 
     AlertDialog(
@@ -111,12 +216,8 @@ fun SplitDialog(
                         .background(Brush.linearGradient(glass.accentGradient)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Icon(Icons.Default.Person, contentDescription = null,
+                        tint = Color.White, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(if (existing.isEmpty()) "Split with friends" else "Edit split")
@@ -126,7 +227,7 @@ fun SplitDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = 480.dp)
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
@@ -148,37 +249,56 @@ fun SplitDialog(
                         cornerRadius = 16.dp,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedTextField(
-                                value = row.name,
-                                onValueChange = { rows[index] = rows[index].copy(name = it) },
-                                label = { Text("Friend") },
-                                singleLine = true,
-                                modifier = Modifier.weight(1.3f)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            OutlinedTextField(
-                                value = row.share,
-                                onValueChange = { new ->
-                                    // Allow only digits and a single decimal point.
-                                    if (new.isEmpty() || new.matches(Regex("""\d*\.?\d*"""))) {
-                                        rows[index] = rows[index].copy(share = new)
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = row.name,
+                                    onValueChange = { rows[index] = rows[index].copy(name = it) },
+                                    label = { Text("Friend") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1.3f),
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            pendingContactIndex = index
+                                            contactPickerLauncher.launch(null)
+                                        }) {
+                                            Icon(Icons.Default.Contacts,
+                                                contentDescription = "Pick contact",
+                                                modifier = Modifier.size(18.dp))
+                                        }
                                     }
-                                },
-                                label = { Text("Owes") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.weight(1f)
-                            )
-                            Checkbox(
-                                checked = row.paid,
-                                onCheckedChange = { rows[index] = rows[index].copy(paid = it) }
-                            )
-                            IconButton(onClick = { rows.removeAt(index) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Remove friend")
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                OutlinedTextField(
+                                    value = row.share,
+                                    onValueChange = { new ->
+                                        if (new.isEmpty() || new.matches(Regex("""\d*\.?\d*"""))) {
+                                            rows[index] = rows[index].copy(share = new)
+                                        }
+                                    },
+                                    label = { Text("Owes") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Checkbox(
+                                    checked = row.paid,
+                                    onCheckedChange = { rows[index] = rows[index].copy(paid = it) }
+                                )
+                                IconButton(onClick = { rows.removeAt(index) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Remove")
+                                }
+                            }
+                            if (row.phone.isNotEmpty()) {
+                                Text(
+                                    row.phone,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+                                )
                             }
                         }
                     }
@@ -189,7 +309,7 @@ fun SplitDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(onClick = { rows.add(SplitRow("", "0", false)) }) {
+                    OutlinedButton(onClick = { rows.add(SplitRow("", "", "0", false)) }) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
                         Text("Add friend")
@@ -205,11 +325,11 @@ fun SplitDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = if (yourShare < 0) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.primary
                 )
                 if (yourShare < 0) {
                     Text(
-                        text = "Friends' shares exceed the total.",
+                        "Friends' shares exceed the total.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -221,15 +341,17 @@ fun SplitDialog(
                 text = "Save",
                 enabled = yourShare >= 0,
                 onClick = {
-                    // Keep only named friends with a positive share.
                     val participants = rows.mapNotNull { r ->
                         val name = r.name.trim()
                         val share = r.share.toDoubleOrNull() ?: 0.0
-                        if (name.isNotEmpty() && share > 0) {
+                        if (name.isNotEmpty() && share > 0)
                             SplitParticipant(name = name, share = share, paid = r.paid)
-                        } else null
+                        else null
                     }
                     if (participants.isEmpty()) onClear() else onSave(participants)
+                    // Fire message intents for all friends with a name
+                    rows.filter { it.name.isNotBlank() && (it.share.toDoubleOrNull() ?: 0.0) > 0 }
+                        .forEach { sendMessage(it) }
                 }
             )
         },
@@ -246,7 +368,6 @@ fun SplitDialog(
     )
 }
 
-/** Trim trailing ".0" so shares display cleanly in the editable field. */
 private fun formatShare(value: Double): String {
     return if (value % 1.0 == 0.0) value.toLong().toString()
     else String.format(Locale.US, "%.2f", value)

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,6 +57,7 @@ import com.expensetracker.ui.screens.SplashScreen
 import com.expensetracker.ui.theme.ExpenseTrackerTheme
 import com.expensetracker.notification.NotificationHelper
 import com.expensetracker.viewmodel.ExpenseViewModel
+import com.expensetracker.viewmodel.GroupViewModel
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -223,6 +225,7 @@ class MainActivity : FragmentActivity() {
 
                 val navController = rememberNavController()
                 val viewModel: ExpenseViewModel = hiltViewModel()
+                val groupViewModel: GroupViewModel = hiltViewModel()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
 
@@ -291,6 +294,16 @@ class MainActivity : FragmentActivity() {
                                 }
                             )
                             NavigationBarItem(
+                                icon = { Icon(Icons.Default.Group, contentDescription = "Groups") },
+                                label = { Text("Groups", style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                                selected = currentRoute == Screen.Groups.route,
+                                onClick = {
+                                    navController.navigate(Screen.Groups.route) {
+                                        popUpTo(Screen.Dashboard.route)
+                                    }
+                                }
+                            )
+                            NavigationBarItem(
                                 modifier = Modifier.spotlightTarget(
                                     SpotlightTargets.NAV_BUDGET, spotlightState
                                 ),
@@ -347,6 +360,7 @@ class MainActivity : FragmentActivity() {
                     NavGraph(
                         navController = navController,
                         viewModel = viewModel,
+                        groupViewModel = groupViewModel,
                         userPreferences = userPreferences,
                         budgetPreferences = budgetPreferences,
                         notificationHelper = notificationHelper,

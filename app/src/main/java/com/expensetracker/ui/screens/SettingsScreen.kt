@@ -66,6 +66,7 @@ fun SettingsScreen(
     var newAccount by remember { mutableStateOf("") }
     var accounts by remember { mutableStateOf(userPreferences.userAccountNumbers) }
     var minSalary by remember { mutableStateOf(userPreferences.minSalaryAmount.toInt().toString()) }
+    var upiId by remember { mutableStateOf(userPreferences.upiId) }
 
     Column(
         modifier = Modifier
@@ -336,6 +337,29 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // UPI ID for split messages
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                GlassSectionHeader(title = "Payments")
+                Text(
+                    text = "Your UPI ID is included in split messages so friends can pay you directly. Leave blank to send plain messages.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                OutlinedTextField(
+                    value = upiId,
+                    onValueChange = {
+                        upiId = it
+                        userPreferences.upiId = it
+                    },
+                    label = { Text("Your UPI ID (e.g. name@upi)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
 

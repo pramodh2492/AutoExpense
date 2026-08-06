@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.expensetracker.data.local.BudgetPreferences
 import com.expensetracker.data.local.UserPreferences
 import com.expensetracker.notification.NotificationHelper
@@ -15,11 +17,14 @@ import com.expensetracker.tax.TaxCalculator
 import com.expensetracker.ui.screens.AddTransactionScreen
 import com.expensetracker.ui.screens.BudgetScreen
 import com.expensetracker.ui.screens.DashboardScreen
+import com.expensetracker.ui.screens.GroupDetailScreen
+import com.expensetracker.ui.screens.GroupsScreen
 import com.expensetracker.ui.screens.SettingsScreen
 import com.expensetracker.ui.screens.StatsScreen
 import com.expensetracker.ui.screens.TaxCalculatorScreen
 import com.expensetracker.ui.screens.TransactionListScreen
 import com.expensetracker.viewmodel.ExpenseViewModel
+import com.expensetracker.viewmodel.GroupViewModel
 
 sealed class Screen(val route: String) {
     data object Dashboard : Screen("dashboard")
@@ -29,12 +34,17 @@ sealed class Screen(val route: String) {
     data object AddTransaction : Screen("add_transaction")
     data object Settings : Screen("settings")
     data object Tax : Screen("tax")
+    data object Groups : Screen("groups")
+    data object GroupDetail : Screen("group_detail/{code}") {
+        fun withCode(code: String) = "group_detail/$code"
+    }
 }
 
 @Composable
 fun NavGraph(
     navController: NavHostController,
     viewModel: ExpenseViewModel,
+    groupViewModel: GroupViewModel,
     userPreferences: UserPreferences,
     budgetPreferences: BudgetPreferences,
     notificationHelper: NotificationHelper,
@@ -52,7 +62,15 @@ fun NavGraph(
             DashboardScreen(viewModel = viewModel, navController = navController, taxCalculator = taxCalculator)
         }
         composable(Screen.Transactions.route) {
-            TransactionListScreen(viewModel = viewModel)
+            TransactionListScreen(
+                viewModel = viewModel,
+                groupViewModel = groupViewModel,
+                userPreferences = userPreferences,
+                onNavigateToGroups = {
+                    navController.navigate(Screen.Groups.route)
+                },
+                onSignInRequired = { onSignIn?.invoke() }
+            )
         }
         composable(Screen.Stats.route) {
             StatsScreen(viewModel = viewModel)
@@ -88,6 +106,20 @@ fun NavGraph(
         }
         composable(Screen.Tax.route) {
             TaxCalculatorScreen(taxCalculator = taxCalculator)
+        }
+        composable(Screen.Groups.route) {
+            GroupsScreen(
+                viewModel = groupViewModel,
+                navController = navController,
+                onSignInRequired = { onSignIn?.invoke() }
+            )
+        }
+        composable(
+            route = Screen.GroupDetail.route,
+            arguments = listOf(navArgument("code") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val code = backStackEntry.arguments?.getString("code") ?: return@composable
+            GroupDetailScreen(code = code, viewModel = groupViewModel, navController = navController)
         }
     }
 }

@@ -112,6 +112,7 @@ dependencies {
 
     // Firebase App Check with Play Integrity
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
+    implementation("com.google.firebase:firebase-messaging-ktx")
 
     // Google Sign-In
     // 21.2.0 fixes a NullPointerException in SignInHubActivity.onCreate

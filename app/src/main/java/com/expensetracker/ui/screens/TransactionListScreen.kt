@@ -61,13 +61,16 @@ import androidx.compose.ui.unit.dp
 import com.expensetracker.data.model.Transaction
 import com.expensetracker.data.model.TransactionCategory
 import com.expensetracker.data.model.TransactionType
+import com.expensetracker.data.local.UserPreferences
 import com.expensetracker.ui.components.GlassCard
 import com.expensetracker.ui.components.LocalSpotlight
 import com.expensetracker.ui.components.SpotlightTargets
+import com.expensetracker.ui.components.SplitActionSheet
 import com.expensetracker.ui.components.TransactionItem
 import com.expensetracker.ui.components.spotlightTarget
 import com.expensetracker.ui.theme.AppTheme
 import com.expensetracker.viewmodel.ExpenseViewModel
+import com.expensetracker.viewmodel.GroupViewModel
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -82,7 +85,13 @@ enum class ViewFilter(val label: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransactionListScreen(viewModel: ExpenseViewModel) {
+fun TransactionListScreen(
+    viewModel: ExpenseViewModel,
+    groupViewModel: GroupViewModel? = null,
+    userPreferences: UserPreferences? = null,
+    onNavigateToGroups: (() -> Unit)? = null,
+    onSignInRequired: (() -> Unit)? = null
+) {
     val transactions by viewModel.transactions.collectAsState()
     val glass = AppTheme.glass
     val spotlight = LocalSpotlight.current
@@ -100,6 +109,8 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
 
     // Split-with-friends dialog target
     var splittingTransaction by remember { mutableStateOf<Transaction?>(null) }
+    var showSplitActionSheet by remember { mutableStateOf<Transaction?>(null) }
+    val myGroups by (groupViewModel?.myGroups?.collectAsState() ?: remember { androidx.compose.runtime.mutableStateOf(emptyList()) })
 
     val filteredByType = when (selectedFilter) {
         ViewFilter.DEBITS -> transactions.filter { it.type == TransactionType.DEBIT }
@@ -344,7 +355,7 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
                                     // Splitting only applies to money you paid out (debits).
                                     onSplit = if (com.expensetracker.config.FeatureFlags.SPLIT_ENABLED &&
                                         transaction.type == TransactionType.DEBIT) {
-                                        { splittingTransaction = transaction }
+                                        { showSplitActionSheet = transaction }
                                     } else null,
                                     onDelete = {
                                         lastDeletedTransaction = transaction
@@ -402,14 +413,34 @@ fun TransactionListScreen(viewModel: ExpenseViewModel) {
         }
     }
 
+    // Action sheet — choose split mode
+    showSplitActionSheet?.let { txn ->
+        SplitActionSheet(
+            hasGroups = myGroups.isNotEmpty(),
+            onSplitWithFriends = {
+                showSplitActionSheet = null
+                splittingTransaction = txn
+            },
+            onAddToGroup = {
+                showSplitActionSheet = null
+                onNavigateToGroups?.invoke()
+            },
+            onCreateGroup = {
+                showSplitActionSheet = null
+                if (groupViewModel?.isSignedIn == true) onNavigateToGroups?.invoke()
+                else onSignInRequired?.invoke()
+            },
+            onDismiss = { showSplitActionSheet = null }
+        )
+    }
+
     // Split-with-friends dialog
     splittingTransaction?.let { txn ->
-        // Parse the stored split once per opened transaction rather than on every
-        // recomposition of the dialog.
         val existingSplit = remember(txn.id, txn.splitJson) { viewModel.splitParticipants(txn) }
         com.expensetracker.ui.components.SplitDialog(
             transaction = txn,
             existing = existingSplit,
+            upiId = userPreferences?.upiId ?: "",
             onDismiss = { splittingTransaction = null },
             onSave = { participants ->
                 viewModel.saveSplit(txn, participants)

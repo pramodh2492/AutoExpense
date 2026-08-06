@@ -80,4 +80,8 @@ class UserPreferences @Inject constructor(
     var lastRepairVersion: Int
         get() = prefs.getInt("last_repair_version", 0)
         set(value) = prefs.edit().putInt("last_repair_version", value).apply()
+
+    var upiId: String
+        get() = prefs.getString("upi_id", "") ?: ""
+        set(value) = prefs.edit().putString("upi_id", value).apply()
 }
