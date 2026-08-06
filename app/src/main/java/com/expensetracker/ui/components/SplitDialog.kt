@@ -279,31 +279,40 @@ fun SplitDialog(
                     GlassCard(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                         cornerRadius = 16.dp,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                     ) {
-                        Column {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            // Row 1: Friend name field + contact picker icon
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 OutlinedTextField(
                                     value = row.name,
                                     onValueChange = { rows[index] = rows[index].copy(name = it) },
-                                    label = { Text("Friend") },
+                                    label = { Text("Friend name") },
                                     singleLine = true,
-                                    modifier = Modifier.weight(1.3f),
-                                    trailingIcon = {
-                                        IconButton(onClick = {
-                                            pendingContactIndex = index
-                                            contactPickerLauncher.launch(null)
-                                        }) {
-                                            Icon(Icons.Default.Contacts,
-                                                contentDescription = "Pick contact",
-                                                modifier = Modifier.size(18.dp))
-                                        }
-                                    }
+                                    modifier = Modifier.weight(1f)
                                 )
-                                Spacer(Modifier.width(6.dp))
+                                IconButton(onClick = {
+                                    pendingContactIndex = index
+                                    contactPickerLauncher.launch(null)
+                                }) {
+                                    Icon(
+                                        Icons.Default.Contacts,
+                                        contentDescription = "Pick from contacts",
+                                        modifier = Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            // Row 2: Owes amount + paid checkbox + delete
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 OutlinedTextField(
                                     value = row.share,
                                     onValueChange = { new ->
@@ -311,17 +320,25 @@ fun SplitDialog(
                                             rows[index] = rows[index].copy(share = new)
                                         }
                                     },
-                                    label = { Text("Owes") },
+                                    label = { Text("Amount they owe") },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     modifier = Modifier.weight(1f)
                                 )
-                                Checkbox(
-                                    checked = row.paid,
-                                    onCheckedChange = { rows[index] = rows[index].copy(paid = it) }
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(
+                                        checked = row.paid,
+                                        onCheckedChange = { rows[index] = rows[index].copy(paid = it) }
+                                    )
+                                    Text(
+                                        "Paid",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 IconButton(onClick = { rows.removeAt(index) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Remove")
+                                    Icon(Icons.Default.Delete, contentDescription = "Remove",
+                                        tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                             if (row.phone.isNotEmpty()) {
@@ -329,7 +346,7 @@ fun SplitDialog(
                                     row.phone,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+                                    modifier = Modifier.padding(start = 4.dp)
                                 )
                             }
                         }
