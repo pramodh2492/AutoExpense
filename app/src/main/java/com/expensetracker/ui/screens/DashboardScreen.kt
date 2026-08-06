@@ -332,7 +332,8 @@ fun DashboardScreen(
                             Text(
                                 text = "Where your money goes",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             CategoryPieChart(

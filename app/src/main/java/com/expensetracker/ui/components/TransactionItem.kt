@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -39,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +55,7 @@ import com.expensetracker.data.model.PaymentSource
 import com.expensetracker.data.model.Transaction
 import com.expensetracker.data.model.TransactionCategory
 import com.expensetracker.data.model.TransactionType
+import com.expensetracker.ui.theme.AppTheme
 import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -143,6 +147,42 @@ fun TransactionItem(
                             maxLines = 2
                         )
                     }
+                }
+            }
+
+            // Split icon — visible only on debits when the split callback is wired in.
+            // Filled+colored when already split, outlined when not.
+            if (onSplit != null && transaction.type == TransactionType.DEBIT) {
+                val glass = AppTheme.glass
+                Box(
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (transaction.isSplit)
+                                Brush.linearGradient(glass.accentGradient)
+                            else
+                                Brush.linearGradient(
+                                    listOf(
+                                        Color.White.copy(alpha = 0.08f),
+                                        Color.White.copy(alpha = 0.08f)
+                                    )
+                                )
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onSplit() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Groups,
+                        contentDescription = if (transaction.isSplit) "Edit split" else "Split with friends",
+                        tint = if (transaction.isSplit) Color.White
+                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 
