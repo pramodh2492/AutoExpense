@@ -1,0 +1,4 @@
+• Split messages now include GPay and UPI payment links so friends can pay directly from the notification
+• Contact picker crash fix
+• Back gesture support enabled
+• Bug fixes
