@@ -455,13 +455,22 @@ fun TransactionListScreen(
         )
     }
 
-    // Split-with-friends dialog
+    // Split-with-friends bottom sheet
     splittingTransaction?.let { txn ->
         val existingSplit = remember(txn.id, txn.splitJson) { viewModel.splitParticipants(txn) }
+        // Collect group expenses at this merchant across all groups — visible to friends
+        val merchantGroupExpenses = remember(txn.merchant, myGroups) {
+            myGroups.flatMap { group ->
+                group.expenses.filter { expense ->
+                    expense.description.equals(txn.merchant, ignoreCase = true)
+                }
+            }
+        }
         com.expensetracker.ui.components.SplitDialog(
             transaction = txn,
             existing = existingSplit,
             upiId = userPreferences?.upiId ?: "",
+            groupExpenses = merchantGroupExpenses,
             onDismiss = { splittingTransaction = null },
             onSave = { participants ->
                 viewModel.saveSplit(txn, participants)
