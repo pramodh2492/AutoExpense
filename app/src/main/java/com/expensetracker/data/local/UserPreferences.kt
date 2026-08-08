@@ -84,4 +84,10 @@ class UserPreferences @Inject constructor(
     var upiId: String
         get() = prefs.getString("upi_id", "") ?: ""
         set(value) = prefs.edit().putString("upi_id", value).apply()
+
+    fun lastSeenExpenseTimestamp(groupCode: String): Long =
+        prefs.getLong("last_seen_expense_$groupCode", 0L)
+
+    fun markGroupExpensesSeen(groupCode: String, timestamp: Long) =
+        prefs.edit().putLong("last_seen_expense_$groupCode", timestamp).apply()
 }

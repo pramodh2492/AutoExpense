@@ -2,10 +2,12 @@ package com.expensetracker.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.expensetracker.data.local.UserPreferences
 import com.expensetracker.data.model.ExpenseGroup
 import com.expensetracker.data.model.GroupExpense
 import com.expensetracker.data.model.GroupExpenseSplit
 import com.expensetracker.data.repository.GroupRepository
+import com.expensetracker.notification.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +26,9 @@ sealed class GroupUiState {
 @HiltViewModel
 class GroupViewModel @Inject constructor(
     private val repository: GroupRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val userPreferences: UserPreferences,
+    private val notificationHelper: NotificationHelper
 ) : ViewModel() {
 
     private val _myGroups = MutableStateFlow<List<ExpenseGroup>>(emptyList())
@@ -46,7 +50,30 @@ class GroupViewModel @Inject constructor(
 
     fun loadMyGroups() {
         viewModelScope.launch {
-            repository.observeMyGroups().collect { _myGroups.value = it }
+            repository.observeMyGroups().collect { groups ->
+                val uid = currentUid
+                groups.forEach { group ->
+                    val lastSeen = userPreferences.lastSeenExpenseTimestamp(group.code)
+                    // Find expenses added by others since last time this user opened the app
+                    val newExpenses = group.expenses.filter { expense ->
+                        expense.timestamp > lastSeen && expense.paidByUid != uid
+                    }
+                    newExpenses.forEach { expense ->
+                        notificationHelper.showGroupExpenseNotification(
+                            groupName = group.name,
+                            paidByName = expense.paidByName,
+                            description = expense.description,
+                            amount = expense.amount
+                        )
+                    }
+                    // Mark all current expenses as seen
+                    val latestTimestamp = group.expenses.maxOfOrNull { it.timestamp } ?: lastSeen
+                    if (latestTimestamp > lastSeen) {
+                        userPreferences.markGroupExpensesSeen(group.code, latestTimestamp)
+                    }
+                }
+                _myGroups.value = groups
+            }
         }
     }
 

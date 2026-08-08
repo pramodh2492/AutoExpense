@@ -26,6 +26,7 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_WEEKLY = "weekly_summary"
         const val CHANNEL_BUDGET = "budget_alerts"
         const val CHANNEL_UNKNOWN = "unknown_merchant"
+        const val CHANNEL_GROUP = "group_expenses"
     }
 
     init {
@@ -53,6 +54,11 @@ class NotificationHelper @Inject constructor(
                 CHANNEL_UNKNOWN, "Categorize",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply { description = "Help categorize unknown transactions" },
+
+            NotificationChannel(
+                CHANNEL_GROUP, "Group Expenses",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply { description = "New expenses added to your groups" },
         )
 
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -214,6 +220,26 @@ class NotificationHelper @Inject constructor(
 
         NotificationManagerCompat.from(context).notify(
             "warn_$category".hashCode(), notification
+        )
+    }
+
+    fun showGroupExpenseNotification(groupName: String, paidByName: String, description: String, amount: Double) {
+        if (!hasPermission()) return
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pending = PendingIntent.getActivity(
+            context, 0, intent, PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_GROUP)
+            .setSmallIcon(android.R.drawable.ic_menu_share)
+            .setContentTitle("$paidByName added to $groupName")
+            .setContentText("$description • ₹${String.format("%,.0f", amount)}")
+            .setContentIntent(pending)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(
+            "group_${System.currentTimeMillis()}".hashCode(), notification
         )
     }
 
