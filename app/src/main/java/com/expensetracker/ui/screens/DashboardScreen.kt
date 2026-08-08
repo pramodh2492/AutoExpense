@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
@@ -129,6 +130,13 @@ fun DashboardScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Row {
+                    IconButton(onClick = { CsvExportHelper.exportAndShare(context, transactions) }) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Export CSV",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(onClick = { ShareReportHelper.shareReport(context, stats) }) {
                         Icon(
                             imageVector = Icons.Default.Share,
