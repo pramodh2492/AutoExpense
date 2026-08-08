@@ -3,8 +3,11 @@ package com.expensetracker.ui.components
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -190,40 +193,47 @@ fun SplitDialog(
         uri ?: return@rememberLauncherForActivityResult
         val idx = pendingContactIndex
         if (idx < 0 || idx >= rows.size) return@rememberLauncherForActivityResult
-        val projection = arrayOf(
-            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-            ContactsContract.CommonDataKinds.Phone.NUMBER
-        )
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val contactId = cursor.getString(
-                    cursor.getColumnIndexOrThrow(ContactsContract.Contacts._ID)
-                )
-                val name = cursor.getString(
-                    cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME)
-                ) ?: ""
-                context.contentResolver.query(
-                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                    projection,
-                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                    arrayOf(contactId),
-                    null
-                )?.use { phoneCursor ->
-                    if (phoneCursor.moveToFirst()) {
-                        val phone = phoneCursor.getString(
-                            phoneCursor.getColumnIndexOrThrow(
-                                ContactsContract.CommonDataKinds.Phone.NUMBER
-                            )
-                        ) ?: ""
-                        rows[idx] = rows[idx].copy(name = name, phone = phone)
+        try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val name = cursor.getString(
+                        cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME)
+                    ) ?: ""
+                    // Phone number lookup requires READ_CONTACTS — skip gracefully if denied
+                    val hasReadContacts = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.READ_CONTACTS
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (hasReadContacts) {
+                        val contactId = cursor.getString(
+                            cursor.getColumnIndexOrThrow(ContactsContract.Contacts._ID)
+                        )
+                        val projection = arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                        context.contentResolver.query(
+                            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            projection,
+                            "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                            arrayOf(contactId),
+                            null
+                        )?.use { phoneCursor ->
+                            val phone = if (phoneCursor.moveToFirst())
+                                phoneCursor.getString(0) ?: ""
+                            else ""
+                            rows[idx] = rows[idx].copy(name = name, phone = phone)
+                        } ?: run { rows[idx] = rows[idx].copy(name = name) }
                     } else {
                         rows[idx] = rows[idx].copy(name = name)
                     }
                 }
             }
+        } catch (_: SecurityException) {
+            // Permission denied at runtime — name will be set without phone
         }
         pendingContactIndex = -1
     }
+
+    val requestContactPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* permission result handled in picker callback above */ }
 
     fun friendTotal(): Double = rows.sumOf { it.share.toDoubleOrNull() ?: 0.0 }
     val yourShare = transaction.amount - friendTotal()
@@ -396,6 +406,12 @@ fun SplitDialog(
                             )
                             IconButton(onClick = {
                                 pendingContactIndex = index
+                                if (ContextCompat.checkSelfPermission(
+                                        context, Manifest.permission.READ_CONTACTS
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    requestContactPermission.launch(Manifest.permission.READ_CONTACTS)
+                                }
                                 contactPickerLauncher.launch(null)
                             }) {
                                 Icon(
