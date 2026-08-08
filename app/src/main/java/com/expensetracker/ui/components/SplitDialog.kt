@@ -292,7 +292,13 @@ fun SplitDialog(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .background(
-                            if (yourShare < 0) MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+                            if (yourShare < 0)
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                                        MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+                                    )
+                                )
                             else Brush.horizontalGradient(glass.accentGradient)
                         )
                         .padding(horizontal = 16.dp, vertical = 8.dp)
