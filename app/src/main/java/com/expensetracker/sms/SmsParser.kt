@@ -36,7 +36,8 @@ class SmsParser @Inject constructor(
     )
 
     private val creditKeywords = listOf(
-        "credited", "credit", "received", "refund", "cashback", "reversed"
+        "credited", "credit", "received", "refund", "cashback", "reversed",
+        "has credit for", "credit for"
     )
 
     private val bankSenders = listOf(
@@ -213,6 +214,11 @@ class SmsParser @Inject constructor(
         Regex("""(?:cashback|reward|bonus|coupon|coins?)\s+(?:of\s+)?(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE),
         Regex("""credited\s+to\s+(?:your\s+)?(?:wallet|account).*(?:shop|order|app|code)""", RegexOption.IGNORE_CASE),
         Regex("""(?:bewakoof|myntra|flipkart|amazon|meesho|ajio|nykaa).*(?:wallet|credit|cashback|reward)""", RegexOption.IGNORE_CASE),
+
+        // Meal/benefit wallet top-ups — employer loading food/meal cards, not a bank debit/credit
+        Regex("""(?:meal|food|lunch|pluxee|sodexo|edenred|zeta|zaggle)\s+(?:wallet|card|balance)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:card|wallet)\s+(?:has been\s+)?(?:successfully\s+)?credited\s+(?:with|towards)\s+.*(?:meal|food|wallet)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:pluxee|sodexo|edenred|zeta|zaggle)""", RegexOption.IGNORE_CASE),
     )
 
     // Balance/enquiry phrases. A real debit/credit SMS often APPENDS the running balance
@@ -229,7 +235,9 @@ class SmsParser @Inject constructor(
     private val excludedSenders = listOf(
         "BEWKOF", "MYNTRA", "FLPKRT", "AMAZIN", "MEESHO", "AJIOOO",
         "NYKAA", "SWIGGY", "ZOMATO", "DUNZO", "CRED", "PHONEPE",
-        "PAYTM", "GPAY", "OLACAB", "RAPIDO", "UBER"
+        "PAYTM", "GPAY", "OLACAB", "RAPIDO", "UBER",
+        // Meal/benefit wallet providers — top-ups are not bank transactions
+        "PLUXEE", "SODEXO", "EDENRED", "ZETA", "ZAGGLE"
     )
 
     fun isTransactionalSms(sender: String, body: String): Boolean {
@@ -263,7 +271,16 @@ class SmsParser @Inject constructor(
         // be wrongly dropped.
         if (!hasTransactionKeyword && balanceOnlyPatterns.any { it.containsMatchIn(body) }) return false
 
-        return hasAmount && hasTransactionKeyword
+        if (!hasAmount || !hasTransactionKeyword) return false
+
+        // Require at least one corroborating signal beyond amount+keyword to weed out promo SMS
+        // that happen to contain both (e.g. "Pay Rs.X by EMI" or wallet top-up messages).
+        val hasAccountRef = Regex("""(?:a/c|acct|account|card)\s*(?:no\.?|#|xx|XX|\*+)?\s*[xX*\d]{4,}""", RegexOption.IGNORE_CASE).containsMatchIn(body)
+        val hasBalance = balanceOnlyPatterns.any { it.containsMatchIn(body) }
+        val hasRef = referencePatterns.any { it.containsMatchIn(body) }
+        val hasDate = Regex("""\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)""", RegexOption.IGNORE_CASE).containsMatchIn(body)
+
+        return hasAccountRef || hasBalance || hasRef || hasDate
     }
 
     fun reparseType(rawSms: String): TransactionType {
@@ -462,6 +479,9 @@ class SmsParser @Inject constructor(
 
         // "debited from your" or "debited from a/c" (at the start) = DEBIT
         if (Regex("""(?:debited|debit)\s+(?:from|for|by)""").containsMatchIn(lowerBody)) return TransactionType.DEBIT
+
+        // SBI-style "has credit for CT0AHXFK...Salary"
+        if (Regex("""has\s+credit\s+for\b""").containsMatchIn(lowerBody)) return TransactionType.CREDIT
 
         // "credited to your" or "credited to a/c" (at the start) = CREDIT
         if (Regex("""(?:credited|credit)\s+(?:to|for|into)""").containsMatchIn(lowerBody)) {

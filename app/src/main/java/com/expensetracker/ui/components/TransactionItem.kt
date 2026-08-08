@@ -139,14 +139,6 @@ fun TransactionItem(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (transaction.merchant == "Unknown") {
-                        Text(
-                            text = transaction.rawSms.take(80) + "...",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                            maxLines = 2
-                        )
-                    }
                 }
             }
 
