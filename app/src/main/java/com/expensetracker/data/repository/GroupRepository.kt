@@ -93,14 +93,89 @@ class GroupRepository @Inject constructor(
     fun observeMyGroups(): Flow<List<ExpenseGroup>> = callbackFlow {
         val uid = currentUid
         if (uid == null) { trySend(emptyList()); close(); return@callbackFlow }
-        var reg: ListenerRegistration? = null
-        reg = groups.whereArrayContains("memberUids", uid)
+
+        // Track per-group member + expense listeners so they are cleaned up on close
+        val groupRegs = mutableMapOf<String, List<ListenerRegistration>>()
+        val membersByCode = mutableMapOf<String, List<GroupMember>>()
+        val expensesByCode = mutableMapOf<String, List<GroupExpense>>()
+        val baseGroupsByCode = mutableMapOf<String, ExpenseGroup>()
+
+        fun emit() {
+            val result = baseGroupsByCode.values.map { g ->
+                g.copy(
+                    members = membersByCode[g.code] ?: emptyList(),
+                    expenses = expensesByCode[g.code] ?: emptyList()
+                )
+            }
+            trySend(result)
+        }
+
+        fun attachSubListeners(code: String) {
+            if (groupRegs.containsKey(code)) return
+            val docRef = groups.document(code)
+            val membersReg = docRef.collection("members").addSnapshotListener { snap, _ ->
+                membersByCode[code] = snap?.documents?.mapNotNull { d ->
+                    GroupMember(
+                        uid = d.getString("uid") ?: return@mapNotNull null,
+                        displayName = d.getString("displayName") ?: "",
+                        photoUrl = d.getString("photoUrl") ?: "",
+                        joinedAt = d.getLong("joinedAt") ?: 0L
+                    )
+                } ?: emptyList()
+                emit()
+            }
+            val expensesReg = docRef.collection("expenses")
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .addSnapshotListener { snap, _ ->
+                    expensesByCode[code] = snap?.documents?.mapNotNull { d ->
+                        @Suppress("UNCHECKED_CAST")
+                        val splits = (d.get("splitAmong") as? List<Map<String, Any>>)?.map { s ->
+                            GroupExpenseSplit(
+                                uid = s["uid"] as? String ?: "",
+                                displayName = s["displayName"] as? String ?: "",
+                                share = (s["share"] as? Number)?.toDouble() ?: 0.0,
+                                settled = s["settled"] as? Boolean ?: false
+                            )
+                        } ?: emptyList()
+                        GroupExpense(
+                            id = d.id,
+                            description = d.getString("description") ?: "",
+                            amount = d.getDouble("amount") ?: 0.0,
+                            paidByUid = d.getString("paidByUid") ?: "",
+                            paidByName = d.getString("paidByName") ?: "",
+                            category = d.getString("category") ?: "other",
+                            timestamp = d.getLong("timestamp") ?: 0L,
+                            splitAmong = splits
+                        )
+                    } ?: emptyList()
+                    emit()
+                }
+            groupRegs[code] = listOf(membersReg, expensesReg)
+        }
+
+        val topReg = groups.whereArrayContains("memberUids", uid)
             .addSnapshotListener { snap, _ ->
                 if (snap == null) { trySend(emptyList()); return@addSnapshotListener }
-                val list = snap.documents.mapNotNull { it.toExpenseGroup() }
-                trySend(list)
+                val current = snap.documents.mapNotNull { it.toExpenseGroup() }
+                // Remove stale sub-listeners for groups no longer present
+                val currentCodes = current.map { it.code }.toSet()
+                groupRegs.keys.filter { it !in currentCodes }.forEach { code ->
+                    groupRegs.remove(code)?.forEach { it.remove() }
+                    membersByCode.remove(code)
+                    expensesByCode.remove(code)
+                    baseGroupsByCode.remove(code)
+                }
+                current.forEach { g ->
+                    baseGroupsByCode[g.code] = g
+                    attachSubListeners(g.code)
+                }
+                emit()
             }
-        awaitClose { reg?.remove() }
+
+        awaitClose {
+            topReg.remove()
+            groupRegs.values.flatten().forEach { it.remove() }
+        }
     }
 
     fun observeGroup(code: String): Flow<ExpenseGroup?> = callbackFlow {

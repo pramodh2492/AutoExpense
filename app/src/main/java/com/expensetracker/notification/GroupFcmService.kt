@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.expensetracker.MainActivity
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -44,7 +46,15 @@ class GroupFcmService : FirebaseMessagingService() {
     }
 
     override fun onNewToken(token: String) {
-        // Token refresh — in a production app, send this to your server or
-        // store it in Firestore under the user's document for targeted pushes.
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        FirebaseFirestore.getInstance()
+            .collection("users").document(uid)
+            .update("fcmToken", token)
+            .addOnFailureListener {
+                // User doc may not exist yet — set with merge so it's created
+                FirebaseFirestore.getInstance()
+                    .collection("users").document(uid)
+                    .set(mapOf("fcmToken" to token), com.google.firebase.firestore.SetOptions.merge())
+            }
     }
 }
