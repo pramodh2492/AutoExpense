@@ -246,11 +246,15 @@ fun SplitDialog(
 
     fun sendMessage(row: SplitRow) {
         val amount = row.share.toDoubleOrNull() ?: return
-        val upiLink = if (upiId.isNotBlank())
-            " Pay here: upi://pay?pa=$upiId&am=${String.format("%.2f", amount)}&tn=${transaction.merchant}"
-        else ""
-        val message = "Hey ${row.name}, your share for ${transaction.merchant} is " +
-            "₹${String.format("%.2f", amount)}.$upiLink"
+        val amountStr = String.format("%.2f", amount)
+        val merchant = transaction.merchant
+        val payLinks = if (upiId.isNotBlank()) {
+            val encodedNote = Uri.encode("Split: $merchant")
+            val gpayLink = "gpay://upi/pay?pa=${Uri.encode(upiId)}&pn=${Uri.encode("AutoExpense")}&am=$amountStr&tn=$encodedNote"
+            val upiLink = "upi://pay?pa=${Uri.encode(upiId)}&pn=${Uri.encode("AutoExpense")}&am=$amountStr&tn=$encodedNote"
+            "\nPay via GPay: $gpayLink\nOr UPI: $upiLink"
+        } else ""
+        val message = "Hey ${row.name}, your share for $merchant is ₹$amountStr.$payLinks"
         val phone = row.phone.filter { it.isDigit() }
         val intent = if (phone.isNotEmpty()) {
             Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phone")).apply {
