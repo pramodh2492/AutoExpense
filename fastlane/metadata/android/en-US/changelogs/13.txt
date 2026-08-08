@@ -1,0 +1,7 @@
+• Expense Groups: split bills with friends, track who owes what, settle up
+• Split UI redesigned as bottom sheet with people cards and merchant history
+• CSV export — tap the download icon on the home screen to export all transactions
+• SMS parsing improvements: salary credits no longer shown as debits, meal wallet top-ups excluded, promo SMS filtered out
+• Dark theme text visibility fixes on onboarding and home screen
+• Client-side group expense notifications (no extra cost)
+• Bug fixes and stability improvements
