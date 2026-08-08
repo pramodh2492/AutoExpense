@@ -193,7 +193,8 @@ private fun InfoPage(icon: ImageVector, title: String, description: String) {
             text = title,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -241,7 +242,8 @@ private fun AccountSetupPage(userPreferences: UserPreferences?) {
             text = "Your Accounts",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -324,6 +326,7 @@ private fun AccountSetupPage(userPreferences: UserPreferences?) {
                     text = "Monthly Salary (optional)",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(4.dp))

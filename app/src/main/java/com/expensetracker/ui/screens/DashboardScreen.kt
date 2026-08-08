@@ -125,7 +125,8 @@ fun DashboardScreen(
                 Text(
                     text = "Expense Tracker",
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Row {
                     IconButton(onClick = { ShareReportHelper.shareReport(context, stats) }) {
@@ -500,7 +501,8 @@ fun CompactStatTile(
                 text = amount,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1
+                maxLines = 1,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -538,7 +540,8 @@ fun InsightCard(insight: Insight) {
                 Text(
                     text = insight.title,
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = insight.description,
