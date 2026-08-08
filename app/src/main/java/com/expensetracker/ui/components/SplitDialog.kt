@@ -249,10 +249,12 @@ fun SplitDialog(
         val amountStr = String.format("%.2f", amount)
         val merchant = transaction.merchant
         val payLinks = if (upiId.isNotBlank()) {
-            val encodedNote = Uri.encode("Split: $merchant")
-            val gpayLink = "gpay://upi/pay?pa=${Uri.encode(upiId)}&pn=${Uri.encode("AutoExpense")}&am=$amountStr&tn=$encodedNote"
-            val upiLink = "upi://pay?pa=${Uri.encode(upiId)}&pn=${Uri.encode("AutoExpense")}&am=$amountStr&tn=$encodedNote"
-            "\nPay via GPay: $gpayLink\nOr UPI: $upiLink"
+            // Don't encode the full URL — just encode individual param values
+            // upiId contains '@' which must stay literal in the pa= param
+            val note = "Split: $merchant"
+            val gpayLink = "gpay://upi/pay?pa=$upiId&pn=AutoExpense&am=$amountStr&tn=${note.replace(" ", "%20")}"
+            val upiLink = "upi://pay?pa=$upiId&pn=AutoExpense&am=$amountStr&tn=${note.replace(" ", "%20")}"
+            "\n\nPay ₹$amountStr to $upiId\nGPay: $gpayLink\nOther UPI: $upiLink"
         } else ""
         val message = "Hey ${row.name}, your share for $merchant is ₹$amountStr.$payLinks"
         val phone = row.phone.filter { it.isDigit() }
