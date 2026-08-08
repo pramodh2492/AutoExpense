@@ -33,7 +33,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -357,7 +357,7 @@ fun SplitDialog(
                 }
 
                 Spacer(Modifier.height(8.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                Divider(color = Color.White.copy(alpha = 0.1f))
                 Spacer(Modifier.height(16.dp))
             }
 
@@ -613,7 +613,7 @@ private fun PersonCard(
             // History rows — group expenses at this merchant involving this person
             if (history.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                Divider(color = Color.White.copy(alpha = 0.08f))
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = "Previous at this merchant",
