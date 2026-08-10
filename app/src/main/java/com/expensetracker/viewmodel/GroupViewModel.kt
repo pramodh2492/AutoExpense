@@ -147,11 +147,15 @@ class GroupViewModel @Inject constructor(
     }
 
     fun deleteExpense(code: String, expenseId: String) {
+        if (expenseId.isBlank()) {
+            _uiState.value = GroupUiState.Error("Cannot delete: expense ID missing")
+            return
+        }
         viewModelScope.launch {
             _uiState.value = GroupUiState.Loading
             repository.deleteExpense(code, expenseId).fold(
                 onSuccess = { _uiState.value = GroupUiState.Success("Expense deleted") },
-                onFailure = { _uiState.value = GroupUiState.Error(it.message ?: "Failed") }
+                onFailure = { _uiState.value = GroupUiState.Error("Delete failed: ${it.message}") }
             )
         }
     }

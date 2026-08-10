@@ -24,6 +24,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -79,11 +83,31 @@ fun GroupDetailScreen(
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     var showAddExpense by remember { mutableStateOf(false) }
     var showCloseConfirm by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(code) { viewModel.observeGroup(code) }
 
+    LaunchedEffect(uiState) {
+        when (val s = uiState) {
+            is com.expensetracker.viewmodel.GroupUiState.Error ->
+                snackbarHostState.showSnackbar(s.message)
+            is com.expensetracker.viewmodel.GroupUiState.Success ->
+                snackbarHostState.showSnackbar(s.message)
+            else -> {}
+        }
+        viewModel.resetUiState()
+    }
+
     GlassBackground {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            snackbarHost = {
+                SnackbarHost(snackbarHostState) { data ->
+                    Snackbar(snackbarData = data)
+                }
+            }
+        ) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             TopAppBar(
                 title = {
                     Text(
@@ -266,6 +290,7 @@ fun GroupDetailScreen(
                 }
             }
         }
+        } // end Scaffold
     }
 
     if (showAddExpense) {
