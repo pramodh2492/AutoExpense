@@ -92,8 +92,8 @@ dependencies {
     // 1.1.0 fixes the "List adapter activity trampoline invoked without specifying
     // target intent" crash (androidx.glance.appwidget.action.ActionTrampoline) that
     // 1.0.0 threw on some launchers even for widgets without list actions.
-    implementation("androidx.glance:glance-appwidget:1.1.0")
-    implementation("androidx.glance:glance-material3:1.1.0")
+    implementation("androidx.glance:glance-appwidget:1.1.1")
+    implementation("androidx.glance:glance-material3:1.1.1")
 
     // Biometric authentication
     implementation("androidx.biometric:biometric:1.1.0")
