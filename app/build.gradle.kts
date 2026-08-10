@@ -9,12 +9,12 @@ plugins {
 
 android {
     namespace = "com.expensetracker"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.lazysloth.autoexpense"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 14
         versionName = "1.1.4"
     }
