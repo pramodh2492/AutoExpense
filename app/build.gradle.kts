@@ -125,6 +125,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("com.google.firebase:firebase-appcheck-debug")
 }
 
 kapt {

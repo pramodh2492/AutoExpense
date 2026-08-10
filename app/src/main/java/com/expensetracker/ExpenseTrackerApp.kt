@@ -11,6 +11,7 @@ import com.expensetracker.worker.DailyReminderWorker
 import com.expensetracker.worker.WeeklySummaryWorker
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.expensetracker.BuildConfig
 import dagger.hilt.android.HiltAndroidApp
 import java.time.Duration
 import java.time.LocalDateTime
@@ -36,9 +37,15 @@ class ExpenseTrackerApp : Application(), Configuration.Provider {
 
     private fun initializeAppCheck() {
         val firebaseAppCheck = FirebaseAppCheck.getInstance()
-        firebaseAppCheck.installAppCheckProviderFactory(
-            PlayIntegrityAppCheckProviderFactory.getInstance()
-        )
+        if (BuildConfig.DEBUG) {
+            firebaseAppCheck.installAppCheckProviderFactory(
+                com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory.getInstance()
+            )
+        } else {
+            firebaseAppCheck.installAppCheckProviderFactory(
+                PlayIntegrityAppCheckProviderFactory.getInstance()
+            )
+        }
     }
 
     private fun scheduleBackgroundWork() {
