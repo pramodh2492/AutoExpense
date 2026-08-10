@@ -1,6 +1,8 @@
 package com.expensetracker.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,7 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -35,8 +39,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import background
+import androidx.compose.ui.draw.clip
+import CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
@@ -154,8 +164,25 @@ fun GroupDetailScreen(
                     }
                 }
 
-                // Expenses
+                // Charts
                 val expenses = group?.expenses ?: emptyList()
+                val members = group?.members ?: emptyList()
+                if (expenses.isNotEmpty()) {
+                    item {
+                        GlassSectionHeader(title = "Insights")
+                        Spacer(Modifier.height(12.dp))
+                        GroupSpendingChart(expenses = expenses)
+                        Spacer(Modifier.height(12.dp))
+                        GroupPersonChart(
+                            expenses = expenses,
+                            members = members,
+                            currentUid = viewModel.currentUid ?: "",
+                            currencyFormat = currencyFormat
+                        )
+                    }
+                }
+
+                // Expenses
                 if (expenses.isNotEmpty()) {
                     item { GlassSectionHeader(title = "Expenses") }
                     items(expenses) { expense ->
@@ -358,6 +385,214 @@ private fun ExpenseRow(
                                 "Settled",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFF4CAF50)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val chartColors = listOf(
+    Color(0xFF9D7BFF), Color(0xFF00E5FF), Color(0xFFFFAB40),
+    Color(0xFF4CAF50), Color(0xFFFF5252), Color(0xFF2196F3),
+    Color(0xFFE91E63), Color(0xFF00BCD4), Color(0xFFFFC107)
+)
+
+// Chart 1 — Pie: spending by merchant/description
+@Composable
+private fun GroupSpendingChart(expenses: List<GroupExpense>) {
+    val glass = com.expensetracker.ui.theme.AppTheme.glass
+    val byMerchant = expenses
+        .groupBy { it.description.trim() }
+        .mapValues { (_, v) -> v.sumOf { it.amount } }
+        .entries.sortedByDescending { it.value }
+    val total = byMerchant.sumOf { it.value }
+    if (total == 0.0) return
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column {
+            Text(
+                "Where the group spent",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Pie
+                Canvas(modifier = Modifier.size(120.dp)) {
+                    var startAngle = -90f
+                    byMerchant.forEachIndexed { i, (_, amount) ->
+                        val sweep = (amount / total * 360f).toFloat()
+                        drawArc(
+                            color = chartColors[i % chartColors.size],
+                            startAngle = startAngle,
+                            sweepAngle = sweep,
+                            useCenter = true,
+                            topLeft = Offset(10f, 10f),
+                            size = Size(size.width - 20f, size.height - 20f)
+                        )
+                        startAngle += sweep
+                    }
+                }
+                // Legend
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    byMerchant.take(5).forEachIndexed { i, (desc, amount) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(chartColors[i % chartColors.size])
+                            )
+                            Text(
+                                desc,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                "${((amount / total) * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                    if (byMerchant.size > 5) {
+                        Text(
+                            "+${byMerchant.size - 5} more",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.35f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Chart 2 — Horizontal bars: how much each person paid vs owes
+@Composable
+private fun GroupPersonChart(
+    expenses: List<GroupExpense>,
+    members: List<com.expensetracker.data.model.GroupMember>,
+    currentUid: String,
+    currencyFormat: NumberFormat
+) {
+    // Build per-person totals: paid = expenses where paidByUid == uid, owes = unsettled splits
+    data class PersonStats(val name: String, val paid: Double, val owes: Double)
+
+    val allNames = (members.map { it.uid to it.displayName } +
+        expenses.map { it.paidByUid to it.paidByName }).toMap()
+
+    val paidMap = mutableMapOf<String, Double>()
+    val owesMap = mutableMapOf<String, Double>()
+    expenses.forEach { expense ->
+        paidMap[expense.paidByUid] = (paidMap[expense.paidByUid] ?: 0.0) + expense.amount
+        expense.splitAmong.forEach { split ->
+            if (!split.settled) {
+                owesMap[split.uid] = (owesMap[split.uid] ?: 0.0) + split.share
+            }
+        }
+    }
+
+    val stats = allNames.map { (uid, name) ->
+        PersonStats(name, paidMap[uid] ?: 0.0, owesMap[uid] ?: 0.0)
+    }.filter { it.paid > 0 || it.owes > 0 }
+
+    if (stats.isEmpty()) return
+
+    val maxVal = stats.maxOf { maxOf(it.paid, it.owes) }.takeIf { it > 0 } ?: return
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "Person-wise split",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+            // Legend
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF4CAF50)))
+                    Text("Paid", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFFF5252)))
+                    Text("Owes", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                }
+            }
+            stats.forEach { person ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        person.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
+                    )
+                    // Paid bar
+                    if (person.paid > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Canvas(modifier = Modifier.weight(1f).height(10.dp)) {
+                                val barW = (person.paid / maxVal * size.width).toFloat()
+                                drawRoundRect(
+                                    color = Color(0xFF4CAF50).copy(alpha = 0.25f),
+                                    size = Size(size.width, size.height),
+                                    cornerRadius = CornerRadius(5f)
+                                )
+                                drawRoundRect(
+                                    color = Color(0xFF4CAF50),
+                                    size = Size(barW, size.height),
+                                    cornerRadius = CornerRadius(5f)
+                                )
+                            }
+                            Text(
+                                currencyFormat.format(person.paid),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF4CAF50),
+                                modifier = Modifier.width(72.dp)
+                            )
+                        }
+                    }
+                    // Owes bar
+                    if (person.owes > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Canvas(modifier = Modifier.weight(1f).height(10.dp)) {
+                                val barW = (person.owes / maxVal * size.width).toFloat()
+                                drawRoundRect(
+                                    color = Color(0xFFFF5252).copy(alpha = 0.25f),
+                                    size = Size(size.width, size.height),
+                                    cornerRadius = CornerRadius(5f)
+                                )
+                                drawRoundRect(
+                                    color = Color(0xFFFF5252),
+                                    size = Size(barW, size.height),
+                                    cornerRadius = CornerRadius(5f)
+                                )
+                            }
+                            Text(
+                                currencyFormat.format(person.owes),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFFF5252),
+                                modifier = Modifier.width(72.dp)
                             )
                         }
                     }
