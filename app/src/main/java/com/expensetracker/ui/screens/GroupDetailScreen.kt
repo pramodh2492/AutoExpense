@@ -20,6 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -192,9 +194,9 @@ fun GroupDetailScreen(
                             expense = expense,
                             currencyFormat = currencyFormat,
                             currentUid = viewModel.currentUid ?: "",
-                            onSettle = { uid ->
-                                viewModel.settleUp(code, expense.id, uid)
-                            }
+                            onSettle = { uid -> viewModel.settleUp(code, expense.id, uid) },
+                            onDelete = { viewModel.deleteExpense(code, expense.id) },
+                            onEdit = { desc, amt -> viewModel.updateExpense(code, expense.id, desc, amt) {} }
                         )
                     }
                 }
@@ -329,9 +331,43 @@ private fun ExpenseRow(
     expense: GroupExpense,
     currencyFormat: NumberFormat,
     currentUid: String,
-    onSettle: (String) -> Unit
+    onSettle: (String) -> Unit,
+    onDelete: () -> Unit = {},
+    onEdit: (description: String, amount: Double) -> Unit = { _, _ -> }
 ) {
     val fmt = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
+    val isOwner = expense.paidByUid == currentUid
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showEditDialog) {
+        EditExpenseDialog(
+            expense = expense,
+            onDismiss = { showEditDialog = false },
+            onSave = { desc, amt ->
+                onEdit(desc, amt)
+                showEditDialog = false
+            }
+        )
+    }
+
+    if (showDeleteConfirm) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete expense?") },
+            text = { Text("\"${expense.description}\" will be removed for everyone in the group.") },
+            confirmButton = {
+                GradientPillButton(text = "Delete", onClick = {
+                    onDelete()
+                    showDeleteConfirm = false
+                })
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -351,12 +387,40 @@ private fun ExpenseRow(
                         color = Color.White.copy(alpha = 0.6f)
                     )
                 }
-                Text(
-                    currencyFormat.format(expense.amount),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        currencyFormat.format(expense.amount),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    if (isOwner) {
+                        Row {
+                            IconButton(
+                                onClick = { showEditDialog = true },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Edit",
+                                    tint = Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { showDeleteConfirm = true },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
             if (expense.splitAmong.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
@@ -603,6 +667,49 @@ private fun GroupPersonChart(
             }
         }
     }
+}
+
+@Composable
+private fun EditExpenseDialog(
+    expense: GroupExpense,
+    onDismiss: () -> Unit,
+    onSave: (description: String, amount: Double) -> Unit
+) {
+    var description by remember { mutableStateOf(expense.description) }
+    var amountText by remember { mutableStateOf(String.format("%.2f", expense.amount)) }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit expense") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { if (it.matches(Regex("""\d*\.?\d*"""))) amountText = it },
+                    label = { Text("Amount (₹)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            val amount = amountText.toDoubleOrNull() ?: 0.0
+            GradientPillButton(
+                text = "Save",
+                enabled = description.isNotBlank() && amount > 0,
+                onClick = { onSave(description.trim(), amount) }
+            )
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable

@@ -275,6 +275,40 @@ class GroupRepository @Inject constructor(
         }
     }
 
+    suspend fun deleteExpense(code: String, expenseId: String): Result<Unit> {
+        return try {
+            groups.document(code).collection("expenses").document(expenseId).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateExpense(code: String, expenseId: String, description: String, amount: Double): Result<Unit> {
+        return try {
+            val expRef = groups.document(code).collection("expenses").document(expenseId)
+            val doc = expRef.get().await()
+            @Suppress("UNCHECKED_CAST")
+            val existingSplits = (doc.get("splitAmong") as? List<Map<String, Any>>) ?: emptyList()
+            // Recalculate equal shares based on new amount
+            val memberCount = existingSplits.size
+            val newShare = if (memberCount > 0) amount / (memberCount + 1) else amount
+            val updatedSplits = existingSplits.map { s ->
+                s.toMutableMap().apply { put("share", newShare) }
+            }
+            expRef.update(
+                mapOf(
+                    "description" to description,
+                    "amount" to amount,
+                    "splitAmong" to updatedSplits
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun settleUp(code: String, expenseId: String, memberUid: String): Result<Unit> {
         return try {
             val expRef = groups.document(code).collection("expenses").document(expenseId)

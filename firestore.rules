@@ -65,15 +65,16 @@ service cloud.firestore {
         allow write: if request.auth != null && request.auth.uid == uid;
       }
 
-      // Expenses sub-collection — any member can read and add expenses; no deletion
+      // Expenses sub-collection — any member can read and add; only payer can edit/delete
       match /expenses/{expenseId} {
         allow read: if request.auth != null
           && request.auth.uid in get(/databases/$(database)/documents/groups/$(code)).data.memberUids;
         allow create: if request.auth != null
           && request.auth.uid in get(/databases/$(database)/documents/groups/$(code)).data.memberUids
           && request.resource.data.paidByUid == request.auth.uid;
-        // Allow settle-up updates (flipping settled flag) by the payer
         allow update: if request.auth != null
+          && resource.data.paidByUid == request.auth.uid;
+        allow delete: if request.auth != null
           && resource.data.paidByUid == request.auth.uid;
       }
     }

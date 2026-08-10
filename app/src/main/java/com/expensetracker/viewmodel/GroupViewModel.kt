@@ -146,6 +146,29 @@ class GroupViewModel @Inject constructor(
         }
     }
 
+    fun deleteExpense(code: String, expenseId: String) {
+        viewModelScope.launch {
+            _uiState.value = GroupUiState.Loading
+            repository.deleteExpense(code, expenseId).fold(
+                onSuccess = { _uiState.value = GroupUiState.Success("Expense deleted") },
+                onFailure = { _uiState.value = GroupUiState.Error(it.message ?: "Failed") }
+            )
+        }
+    }
+
+    fun updateExpense(code: String, expenseId: String, description: String, amount: Double, onDone: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = GroupUiState.Loading
+            repository.updateExpense(code, expenseId, description, amount).fold(
+                onSuccess = {
+                    _uiState.value = GroupUiState.Success("Expense updated")
+                    onDone()
+                },
+                onFailure = { _uiState.value = GroupUiState.Error(it.message ?: "Failed") }
+            )
+        }
+    }
+
     fun settleUp(code: String, expenseId: String, memberUid: String) {
         viewModelScope.launch {
             repository.settleUp(code, expenseId, memberUid)
