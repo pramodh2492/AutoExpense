@@ -39,7 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import background
+import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import CornerRadius
 import androidx.compose.ui.geometry.Offset
