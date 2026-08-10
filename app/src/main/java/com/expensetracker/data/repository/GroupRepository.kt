@@ -242,6 +242,16 @@ class GroupRepository @Inject constructor(
 
     suspend fun addExpense(code: String, expense: GroupExpense): Result<Unit> {
         return try {
+            // Dedup: reject if same paidBy + description + amount added within last 10 seconds
+            val tenSecondsAgo = expense.timestamp - 10_000L
+            val existing = groups.document(code).collection("expenses")
+                .whereEqualTo("paidByUid", expense.paidByUid)
+                .whereEqualTo("description", expense.description)
+                .whereEqualTo("amount", expense.amount)
+                .whereGreaterThan("timestamp", tenSecondsAgo)
+                .get().await()
+            if (!existing.isEmpty) return Result.failure(Exception("Duplicate expense"))
+
             val data = hashMapOf(
                 "description" to expense.description,
                 "amount" to expense.amount,

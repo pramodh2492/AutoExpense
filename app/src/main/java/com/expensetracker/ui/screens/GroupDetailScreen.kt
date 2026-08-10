@@ -72,6 +72,8 @@ fun GroupDetailScreen(
     navController: NavController
 ) {
     val group by viewModel.activeGroup.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val isSubmitting = uiState is com.expensetracker.viewmodel.GroupUiState.Loading
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     var showAddExpense by remember { mutableStateOf(false) }
     var showCloseConfirm by remember { mutableStateOf(false) }
@@ -268,6 +270,7 @@ fun GroupDetailScreen(
         AddGroupExpenseDialog(
             members = group?.members?.filter { it.uid != viewModel.currentUid } ?: emptyList(),
             currentName = viewModel.currentName,
+            isSubmitting = isSubmitting,
             onDismiss = { showAddExpense = false },
             onAdd = { description, amount ->
                 showAddExpense = false
@@ -606,6 +609,7 @@ private fun GroupPersonChart(
 private fun AddGroupExpenseDialog(
     members: List<com.expensetracker.data.model.GroupMember>,
     currentName: String,
+    isSubmitting: Boolean = false,
     onDismiss: () -> Unit,
     onAdd: (description: String, amount: Double) -> Unit
 ) {
@@ -647,8 +651,8 @@ private fun AddGroupExpenseDialog(
         confirmButton = {
             val amount = amountText.toDoubleOrNull() ?: 0.0
             GradientPillButton(
-                text = "Add",
-                enabled = description.isNotBlank() && amount > 0,
+                text = if (isSubmitting) "Adding…" else "Add",
+                enabled = description.isNotBlank() && amount > 0 && !isSubmitting,
                 onClick = { onAdd(description.trim(), amount) }
             )
         },
