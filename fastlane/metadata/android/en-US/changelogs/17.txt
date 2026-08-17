@@ -1,0 +1,2 @@
+• Fix Google Sign-In failing on all builds
+• Bug fixes
