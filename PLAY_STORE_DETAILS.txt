@@ -48,12 +48,16 @@ Just install and grant SMS permission. AutoExpense reads transaction messages fr
 • Smart Insights — "Food spending up 35% vs last month"
 • Daily Spending View — See exactly where money goes each day
 • Manual Entry — Add cash expenses with one tap
+• Split with Friends — Split any expense with friends, track who owes what, send GPay/UPI payment links directly
+• Expense Groups — Create groups for trips, dinners, or flatmates. Add expenses, see group spending charts, settle up easily
+• CSV Export — Export all transactions as a spreadsheet with one tap
 • Google Sign-In & Cloud Backup — Sync across devices, never lose data
 • 9 PM Daily Reminder — "Review your today's spending"
 • Notifications — Real-time alerts for every transaction
 • App Lock — PIN + Biometric security
 • Home Screen Widget — See today's spend without opening the app
 • Offline AI Assistant — Ask "How much on Swiggy?" and get instant answers
+• Tax Insights — Auto-detect tax-saving expenses (80C, 80D, NPS)
 • Dark Theme — Premium dark UI with vibrant category colors
 
 🔒 PRIVACY FIRST
@@ -158,6 +162,10 @@ FEATURES CHECKLIST
 [x] Privacy policy hosted
 [x] CI/CD (GitHub Actions)
 [x] Firestore security rules
+[x] Split with friends (contact picker, GPay/UPI links, paid tracking)
+[x] Expense Groups (create, join, add expenses, settle up, charts)
+[x] CSV export
+[x] Tax insights (80C, 80D, NPS detection)
 
 ================================================================
 NEXT STEPS FOR PLAY STORE SUBMISSION
