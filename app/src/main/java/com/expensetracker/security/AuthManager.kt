@@ -90,9 +90,14 @@ class AuthManager @Inject constructor(
     }
 
     private fun getWebClientId(): String {
-        // This comes from google-services.json → oauth_client → client_type: 3
+        // R class is generated under the namespace (com.expensetracker), not the applicationId
+        // (com.lazysloth.autoexpense), so getIdentifier with packageName fails. Use the
+        // namespace directly.
         val resources = context.resources
-        val id = resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        var id = resources.getIdentifier("default_web_client_id", "string", "com.expensetracker")
+        if (id == 0) {
+            id = resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        }
         return if (id != 0) resources.getString(id) else ""
     }
 }
