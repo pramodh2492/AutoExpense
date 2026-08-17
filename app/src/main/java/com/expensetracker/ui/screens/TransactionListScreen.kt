@@ -429,8 +429,10 @@ fun TransactionListScreen(
             },
             onCreateGroup = {
                 showSplitActionSheet = null
-                if (groupViewModel?.isSignedIn == true) onNavigateToGroups?.invoke()
-                else onSignInRequired?.invoke()
+                if (groupViewModel?.isSignedIn == true) {
+                    groupViewModel.setPendingExpense(txn.merchant, txn.amount)
+                    onNavigateToGroups?.invoke()
+                } else onSignInRequired?.invoke()
             },
             onDismiss = { showSplitActionSheet = null }
         )

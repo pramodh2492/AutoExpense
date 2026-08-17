@@ -34,6 +34,20 @@ class GroupViewModel @Inject constructor(
     private val _myGroups = MutableStateFlow<List<ExpenseGroup>>(emptyList())
     val myGroups: StateFlow<List<ExpenseGroup>> = _myGroups.asStateFlow()
 
+    // Holds a pending expense to be added after group creation/selection from Txns page
+    var pendingExpenseDescription: String = ""
+    var pendingExpenseAmount: Double = 0.0
+
+    fun setPendingExpense(description: String, amount: Double) {
+        pendingExpenseDescription = description
+        pendingExpenseAmount = amount
+    }
+
+    fun clearPendingExpense() {
+        pendingExpenseDescription = ""
+        pendingExpenseAmount = 0.0
+    }
+
     private val _activeGroup = MutableStateFlow<ExpenseGroup?>(null)
     val activeGroup: StateFlow<ExpenseGroup?> = _activeGroup.asStateFlow()
 
@@ -88,6 +102,13 @@ class GroupViewModel @Inject constructor(
             _uiState.value = GroupUiState.Loading
             repository.createGroup(name).fold(
                 onSuccess = { code ->
+                    // Auto-add pending expense from Txns page if present
+                    if (pendingExpenseDescription.isNotBlank() && pendingExpenseAmount > 0) {
+                        val desc = pendingExpenseDescription
+                        val amt = pendingExpenseAmount
+                        clearPendingExpense()
+                        addExpense(code, desc, amt, emptyList()) {}
+                    }
                     _uiState.value = GroupUiState.Success("Group created!")
                     onSuccess(code)
                 },
