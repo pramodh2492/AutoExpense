@@ -1,0 +1,4 @@
+• Fix Google Sign-In failing with code 10 on all builds
+• Fix blank space at top of Group Detail screen
+• Auto-add expense to group when creating new group from Transactions page
+• Bug fixes
