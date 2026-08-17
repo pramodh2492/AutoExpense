@@ -87,6 +87,12 @@ class AuthManager @Inject constructor(
     fun signOut() {
         auth.signOut()
         googleSignInClient.signOut()
+        googleSignInClient.revokeAccess()
+    }
+
+    fun clearCachedSignIn() {
+        googleSignInClient.signOut()
+        googleSignInClient.revokeAccess()
     }
 
     private fun getWebClientId(): String {

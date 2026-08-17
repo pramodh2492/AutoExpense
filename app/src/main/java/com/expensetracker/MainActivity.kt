@@ -210,6 +210,7 @@ class MainActivity : FragmentActivity() {
                                 showSignInPrompt = false
                                 userPreferences.hasSeenSignInPrompt = true
                                 try {
+                                    authManager.clearCachedSignIn()
                                     googleSignInLauncher.launch(authManager.getSignInIntent())
                                 } catch (_: Exception) {}
                             }) { Text("Sign in") }
@@ -368,6 +369,7 @@ class MainActivity : FragmentActivity() {
                         taxCalculator = taxCalculator,
                         onSignIn = {
                             try {
+                                authManager.clearCachedSignIn()
                                 googleSignInLauncher.launch(authManager.getSignInIntent())
                             } catch (e: Exception) {
                                 signedInEmail.value = null
