@@ -1,0 +1,7 @@
+• Fix Google Sign-In in release build
+• Fix adding expense to group from transactions page (Firestore index error)
+• Fix App Check build error — debug and release now use correct providers
+• Edit and delete expenses inside groups (only for the person who paid)
+• Error messages now shown as snackbars inside group detail
+• Duplicate expense prevention
+• Bug fixes and stability improvements
