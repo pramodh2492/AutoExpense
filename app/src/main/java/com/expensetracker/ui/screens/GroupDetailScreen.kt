@@ -107,7 +107,7 @@ fun GroupDetailScreen(
                 }
             }
         ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        Column(modifier = Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding())) {
             TopAppBar(
                 title = {
                     Text(
