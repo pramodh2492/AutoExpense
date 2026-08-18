@@ -24,12 +24,13 @@ class AuthManager @Inject constructor(
 
     private val googleSignInClient: GoogleSignInClient by lazy {
         val webClientId = getWebClientId()
-        val builder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        android.util.Log.d(TAG, "Building GoogleSignInClient with webClientId=$webClientId")
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
-        if (webClientId.isNotBlank()) {
-            builder.requestIdToken(webClientId)
-        }
-        GoogleSignIn.getClient(context, builder.build())
+            .requestIdToken(webClientId)
+            .requestProfile()
+            .build()
+        GoogleSignIn.getClient(context, gso)
     }
 
     val currentUser: FirebaseUser? get() = auth.currentUser
@@ -92,7 +93,6 @@ class AuthManager @Inject constructor(
 
     fun clearCachedSignIn() {
         googleSignInClient.signOut()
-        googleSignInClient.revokeAccess()
     }
 
     private fun getWebClientId(): String {
