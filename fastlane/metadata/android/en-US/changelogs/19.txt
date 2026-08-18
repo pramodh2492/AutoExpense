@@ -1,0 +1,2 @@
+• Fix Google Sign-In code 10 error — rebuild sign-in client on every attempt
+• Bug fixes
