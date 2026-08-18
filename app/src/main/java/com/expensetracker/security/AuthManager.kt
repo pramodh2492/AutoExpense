@@ -22,7 +22,7 @@ class AuthManager @Inject constructor(
         const val TAG = "ExpenseAuth"
     }
 
-    private val googleSignInClient: GoogleSignInClient by lazy {
+    private fun buildSignInClient(): GoogleSignInClient {
         val webClientId = getWebClientId()
         android.util.Log.d(TAG, "Building GoogleSignInClient with webClientId=$webClientId")
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -30,7 +30,7 @@ class AuthManager @Inject constructor(
             .requestIdToken(webClientId)
             .requestProfile()
             .build()
-        GoogleSignIn.getClient(context, gso)
+        return GoogleSignIn.getClient(context, gso)
     }
 
     val currentUser: FirebaseUser? get() = auth.currentUser
@@ -43,7 +43,7 @@ class AuthManager @Inject constructor(
 
     val userPhotoUrl: String? get() = auth.currentUser?.photoUrl?.toString()
 
-    fun getSignInIntent(): Intent = googleSignInClient.signInIntent
+    fun getSignInIntent(): Intent = buildSignInClient().signInIntent
 
     suspend fun firebaseAuthWithGoogle(idToken: String): Boolean {
         return try {
@@ -87,12 +87,11 @@ class AuthManager @Inject constructor(
 
     fun signOut() {
         auth.signOut()
-        googleSignInClient.signOut()
-        googleSignInClient.revokeAccess()
+        buildSignInClient().signOut()
     }
 
     fun clearCachedSignIn() {
-        googleSignInClient.signOut()
+        buildSignInClient().signOut()
     }
 
     private fun getWebClientId(): String {
