@@ -1,0 +1,2 @@
+• Fix Google Sign-In on all devices and build variants
+• Bug fixes and stability improvements
