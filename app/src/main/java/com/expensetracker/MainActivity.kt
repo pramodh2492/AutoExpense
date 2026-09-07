@@ -53,6 +53,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import com.expensetracker.ui.navigation.NavGraph
 import com.expensetracker.ui.navigation.Screen
 import com.expensetracker.ui.screens.OnboardingScreen
+import com.expensetracker.ui.screens.SmsDisclosureScreen
 import com.expensetracker.ui.screens.SplashScreen
 import com.expensetracker.ui.theme.ExpenseTrackerTheme
 import com.expensetracker.notification.NotificationHelper
@@ -148,7 +149,6 @@ class MainActivity : FragmentActivity() {
         signedInEmail.value = authManager.userEmail
         signedInName.value = authManager.userName
         signedInPhoto.value = authManager.userPhotoUrl
-        requestSmsPermissions()
 
         // Track app open
         rateAppManager.recordAppOpen()
@@ -175,6 +175,32 @@ class MainActivity : FragmentActivity() {
                         onComplete = {
                             userPreferences.hasCompletedOnboarding = true
                             hasCompletedOnboarding = true
+                        }
+                    )
+                    return@ExpenseTrackerTheme
+                }
+
+                // Show SMS disclosure screen once before requesting permission.
+                // Google Play requires a prominent in-app disclosure explaining what SMS
+                // data is accessed, why, and that it stays on-device — before the system dialog.
+                val hasSmsPermission = ContextCompat.checkSelfPermission(
+                    this@MainActivity, Manifest.permission.READ_SMS
+                ) == PackageManager.PERMISSION_GRANTED
+
+                var showSmsDisclosure by remember {
+                    mutableStateOf(!hasSmsPermission && !userPreferences.hasSeenSmsDisclosure)
+                }
+
+                if (showSmsDisclosure) {
+                    SmsDisclosureScreen(
+                        onGrantAccess = {
+                            userPreferences.hasSeenSmsDisclosure = true
+                            showSmsDisclosure = false
+                            requestSmsPermissions()
+                        },
+                        onSkip = {
+                            userPreferences.hasSeenSmsDisclosure = true
+                            showSmsDisclosure = false
                         }
                     )
                     return@ExpenseTrackerTheme

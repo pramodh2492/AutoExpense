@@ -77,6 +77,10 @@ class UserPreferences @Inject constructor(
         get() = prefs.getLong("last_sms_timestamp", 0L)
         set(value) = prefs.edit().putLong("last_sms_timestamp", value).apply()
 
+    var hasSeenSmsDisclosure: Boolean
+        get() = prefs.getBoolean("has_seen_sms_disclosure", false)
+        set(value) = prefs.edit().putBoolean("has_seen_sms_disclosure", value).apply()
+
     var lastRepairVersion: Int
         get() = prefs.getInt("last_repair_version", 0)
         set(value) = prefs.edit().putInt("last_repair_version", value).apply()

@@ -25,7 +25,7 @@
 </head>
 <body>
     <h1>AutoExpense - Privacy Policy</h1>
-    <p><strong>Last updated: July 21, 2026</strong></p>
+    <p><strong>Last updated: September 7, 2026</strong></p>
 
     <h2>Overview</h2>
     <p>AutoExpense reads your SMS messages to automatically track your financial transactions. Your privacy is our top priority.</p>
@@ -64,9 +64,12 @@
     <h2>Permissions Used</h2>
     <table>
         <tr><th>Permission</th><th>Purpose</th></tr>
-        <tr><td>READ_SMS</td><td>Read bank transaction messages for expense tracking</td></tr>
-        <tr><td>RECEIVE_SMS</td><td>Detect new transactions in real-time</td></tr>
-        <tr><td>POST_NOTIFICATIONS</td><td>Send spending alerts and daily reminders</td></tr>
+        <tr><td>READ_SMS</td><td>Read bank transaction messages from your SMS inbox for expense tracking — processed on-device only</td></tr>
+        <tr><td>RECEIVE_SMS</td><td>Detect new bank transaction SMS in real-time as they arrive</td></tr>
+        <tr><td>READ_CONTACTS</td><td>Look up contact names when splitting an expense with friends — optional feature, never uploaded</td></tr>
+        <tr><td>PACKAGE_USAGE_STATS</td><td>Detect when a UPI payment app is used to auto-capture UPI transactions — on-device only</td></tr>
+        <tr><td>POST_NOTIFICATIONS</td><td>Send spending alerts and budget reminders</td></tr>
+        <tr><td>RECEIVE_BOOT_COMPLETED</td><td>Restart background SMS detection after device reboot</td></tr>
         <tr><td>INTERNET</td><td>Optional cloud backup via Firebase</td></tr>
     </table>
 
@@ -88,8 +91,11 @@
     <h2>Third-Party Services</h2>
     <p>We use the following third-party services:</p>
     <ul>
-        <li><strong>Google Firebase:</strong> Authentication, cloud storage, crash reporting, analytics</li>
-        <li><strong>Google Play Services:</strong> Google Sign-In</li>
+        <li><strong>Firebase Analytics:</strong> Collects anonymised usage events (app opens, number of SMS scanned, expense categories, budget actions). Transaction amounts may be included in aggregate analytics. No SMS content is sent.</li>
+        <li><strong>Firebase Crashlytics:</strong> Collects crash reports to help fix bugs. No financial or SMS data is included in crash reports.</li>
+        <li><strong>Firebase Auth:</strong> Manages Google Sign-In. Your Google account email and name are stored only if you choose to sign in.</li>
+        <li><strong>Firebase Firestore:</strong> Stores your transaction history in the cloud only if you sign in and enable sync. Raw SMS text is never stored.</li>
+        <li><strong>Google Play Services:</strong> Google Sign-In authentication.</li>
     </ul>
 
     <h2>Children's Privacy</h2>

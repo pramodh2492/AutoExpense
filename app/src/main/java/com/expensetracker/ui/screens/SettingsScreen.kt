@@ -1,5 +1,8 @@
 package com.expensetracker.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -417,6 +420,26 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+        // Privacy Policy link — required by Google Play for apps accessing sensitive data.
+        // Update PRIVACY_POLICY_URL to your actual hosted policy page.
+        val privacyPolicyUrl = "https://pramodh2492.github.io/AutoExpense/"
+        Text(
+            text = "Privacy Policy",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(privacyPolicyUrl))
+                    )
+                },
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
             text = "AutoExpense by LazySloth",
             style = MaterialTheme.typography.bodySmall,
