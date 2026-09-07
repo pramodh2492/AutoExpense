@@ -1,0 +1,1 @@
+Privacy and compliance improvements: added SMS permission disclosure screen, updated privacy policy, and improved data transparency for Google Play compliance.
